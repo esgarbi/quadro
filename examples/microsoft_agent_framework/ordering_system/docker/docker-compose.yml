@@ -1,0 +1,44 @@
+name: quadro_ordering
+
+services:
+
+  # ── Ordering System — pipeline + board UI ──────────────────────────────────
+  ordering:
+    build:
+      context: ../../../../             # repo root — needed for src/quadro and shared.py
+      dockerfile: examples/microsoft_agent_framework/ordering_system/docker/Dockerfile
+    container_name: quadro_ordering
+    # network_mode: host shares the host network stack, so localhost inside the
+    # container reaches the host directly (e.g. Ollama on localhost:11434).
+    network_mode: host
+    environment:
+      # ── Pipeline parameters ─────────────────────────────────────────────────
+      ORDERING_TARGET:         ${ORDERING_TARGET:-500}
+      ORDERING_CYCLES:         ${ORDERING_CYCLES:-5000}
+      ORDERING_PROFILE:        ${ORDERING_PROFILE:-steady}
+      ORDERING_CHOREOGRAPHY:   ${ORDERING_CHOREOGRAPHY:-}
+
+      # ── LLM provider toggle ────────────────────────────────────────────────
+      # "ollama" — entrypoint waits for Ollama health + pulls model
+      # "openai" — entrypoint skips Ollama, validates OPENAI_API_KEY
+      LLM_PROVIDER:            ${LLM_PROVIDER:-ollama}
+
+      # ── Ollama-specific (only used by entrypoint when LLM_PROVIDER=ollama) ─
+      OLLAMA_MODEL:            ${OLLAMA_MODEL:-gpt-oss:20b}
+      OLLAMA_BASE_URL:         ${OLLAMA_BASE_URL:-http://localhost:11434}
+
+      # ── OpenAI-compatible client (used by Python regardless of provider) ───
+      # localhost works because network_mode: host shares the host network.
+      # For OpenAI mode, override via .env: OPENAI_BASE_URL=https://api.openai.com/v1
+      OPENAI_API_KEY:          ${OPENAI_API_KEY:-ollama}
+      OPENAI_BASE_URL:         ${OPENAI_BASE_URL:-http://localhost:11434/v1}
+      OPENAI_MODEL_ID:         ${OPENAI_MODEL_ID:-gpt-oss:20b}
+
+      # ── Board UI ────────────────────────────────────────────────────────────
+      UI_PORT:                 ${UI_PORT:-8081}
+
+    # network_mode: host means ports are exposed directly; "ports:" is not needed.
+    volumes:
+      - ../../../../src/quadro:/app/src/quadro
+      - ../../../../examples/microsoft_agent_framework:/app/examples/microsoft_agent_framework
+    restart: "no"                             # pipeline runs once; don't auto-restart

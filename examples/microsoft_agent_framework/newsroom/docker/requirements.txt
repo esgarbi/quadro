@@ -1,0 +1,4 @@
+agent-framework
+pydantic
+python-dotenv
+requests

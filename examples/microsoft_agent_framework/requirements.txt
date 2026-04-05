@@ -1,0 +1,7 @@
+# Additional dependencies for the LLM examples (not required by quadro core).
+#
+# Install with:
+#   pip install -r examples/microsoft_agent_framework/requirements.txt
+
+python-dotenv>=1.0
+agent-framework>=0.1.0

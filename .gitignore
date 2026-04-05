@@ -1,0 +1,59 @@
+# Environment variables (secrets)
+.env
+.env.*
+!.env.example
+
+# Temporary working files
+temp/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.tox/
+.nox/
+htmlcov/
+.coverage
+.coverage.*
+.cache/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+
+# Local SQLite boards and example runtime state
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Runtime-generated example output (curated samples live in output_sample/)
+examples/microsoft_agent_framework/newsroom/output/
+examples/microsoft_agent_framework/ordering_system/output/
+
+# OS
+.DS_Store
+._*
+Thumbs.db
+
+# Local tooling artifacts
+*.vsix
+
+
+# Cursor IDE local state / debug logs
+.cursor/
+.cursorignore
+.cursorrules
+.vscode/settings.json

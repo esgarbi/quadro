@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quadro"
+version = "0.1.0"
+description = "Board-centric multi-agent coordination runtime with A2A-style contracts"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/esgarbi/quadro"
+Repository = "https://github.com/esgarbi/quadro"
+Documentation = "https://github.com/esgarbi/quadro#readme"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0", "black>=24.0.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+quadro = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+
