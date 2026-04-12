@@ -446,7 +446,7 @@ Deterministic (no API key required):
 **Known limitations**
 
 - `LocalA2ANetwork` only — no HTTP transport for multi-process deployments
-- `idempotency_key` accepted and stored; deduplication not yet enforced
+  (`A2ATransport` Protocol is in place; `HttpA2ANetwork` is the next step)
 - SQLite backend only — PostgreSQL, MySQL, Redis planned
 
 See [`TODO.md`](TODO.md) for the full open item list and [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md) for milestone status.

@@ -148,6 +148,12 @@ class BoardClient:
         """Delete a data entry. Returns True if the key existed."""
         return self.request("board.delete_data", {"key": key})["deleted"]
 
+    # ── Task archival ─────────────────────────────────────────────────────────
+
+    def archive_task(self, task_id: str) -> bool:
+        """Archive a terminal task. Returns True if archived."""
+        return self.request("board.archive_task", {"task_id": task_id})["archived"]
+
     # ── Filtered queries ─────────────────────────────────────────────────────
 
     def list_tasks_by_status(self, statuses: set[str]) -> list[dict]:

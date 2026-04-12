@@ -313,6 +313,8 @@ class QuadroBoard:
                 result = self._get_task_history(payload)
             elif intent == "board.get_agent_activity":
                 result = self._get_agent_activity(payload)
+            elif intent == "board.archive_task":
+                result = self._archive_task(payload)
             elif intent == "worker.post_result":
                 result = self._worker_post_result(payload, idem_key)
             else:
@@ -537,6 +539,21 @@ class QuadroBoard:
         agent_id = payload["agent_id"]
         events = [e.to_dict() for e in self._backend.list_events_for_agent(agent_id)]
         return {"agent_id": agent_id, "events": events}
+
+    def _archive_task(self, payload: dict) -> dict:
+        task_id = payload["task_id"]
+        task = self._backend.get_task(task_id)
+        if not task:
+            raise NotFoundError(f"Task not found: {task_id}")
+        terminal = set(self._all_terminal_statuses())
+        status_str = str(task.status)
+        if status_str not in terminal:
+            raise ValidationError(
+                f"Only terminal tasks can be archived; "
+                f"task {task_id} is in status {status_str!r}"
+            )
+        self._backend.archive_task(task_id)
+        return {"task_id": task_id, "archived": True}
 
     def _worker_post_result(self, payload: dict, idempotency_key: str | None) -> dict:
         task = self._backend.get_task(payload["task_id"])

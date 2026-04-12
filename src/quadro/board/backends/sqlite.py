@@ -150,6 +150,21 @@ class SqliteBoardBackend(BoardBackend):
                     result_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS archived_tasks (
+                    task_id TEXT PRIMARY KEY,
+                    task_type TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    priority INTEGER NOT NULL DEFAULT 5,
+                    status TEXT NOT NULL,
+                    assigned_to TEXT,
+                    output TEXT,
+                    notes_json TEXT NOT NULL,
+                    continuation_token TEXT,
+                    heartbeat_at TEXT,
+                    context_snapshot_hash TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 """)
             self._conn.commit()
 
@@ -211,6 +226,10 @@ class SqliteBoardBackend(BoardBackend):
             row = self._conn.execute(
                 "SELECT * FROM tasks WHERE task_id=?", (task_id,)
             ).fetchone()
+            if not row:
+                row = self._conn.execute(
+                    "SELECT * FROM archived_tasks WHERE task_id=?", (task_id,)
+                ).fetchone()
         if not row:
             return None
         return _task_from_row(row)
@@ -368,3 +387,27 @@ class SqliteBoardBackend(BoardBackend):
             cursor = self._conn.execute("DELETE FROM data_entries WHERE key=?", (key,))
             self._conn.commit()
             return cursor.rowcount > 0
+
+    def archive_task(self, task_id: str) -> bool:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if not row:
+                return False
+            self._conn.execute(
+                "INSERT INTO archived_tasks SELECT * FROM tasks WHERE task_id=?",
+                (task_id,),
+            )
+            self._conn.execute("DELETE FROM tasks WHERE task_id=?", (task_id,))
+            self._conn.commit()
+            return True
+
+    def get_archived_task(self, task_id: str) -> TaskRecord | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM archived_tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+        if not row:
+            return None
+        return _task_from_row(row)

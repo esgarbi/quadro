@@ -52,6 +52,7 @@ ALLOWED_INTENTS = {
     "board.delete_data",
     "board.get_task_history",
     "board.get_agent_activity",
+    "board.archive_task",
     "chief.wake",
     "worker.execute_task",
     "worker.post_result",
