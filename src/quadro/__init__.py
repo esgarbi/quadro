@@ -7,6 +7,7 @@ from .agents.worker import WorkerAgent
 from .board.board import QuadroBoard
 from .board.client import BoardClient
 from .board.id_provider import DefaultTaskIdProvider
+from .board.lifecycle_loader import load_lifecycle
 from .board.state_machine import LifecycleBuilder, lifecycle
 from .errors import (
     ConflictError,
@@ -26,6 +27,7 @@ __all__ = [
     "DefaultTaskIdProvider",
     "LifecycleBuilder",
     "LocalA2ANetwork",
+    "load_lifecycle",
     "NotFoundError",
     "Ombudsman",
     "QuadroBoard",

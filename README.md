@@ -395,6 +395,49 @@ ORDER_LIFECYCLE = lifecycle([
 ])
 ```
 
+**TOML lifecycle files**
+
+Lifecycle profiles can also be declared in `.lifecycle.toml` files — useful for
+versioning lifecycle definitions separately from code, or sharing them across
+services. Uses stdlib `tomllib` (Python 3.11+), no extra dependencies.
+
+```toml
+name = "article"
+
+steps = [
+    ["UNASSIGNED", "ideating"],
+    ["ideating", "idea_ready"],
+    ["idea_ready", "researching"],
+    ["researching", "research_ready"],
+    ["research_ready", "writing"],
+    ["writing", "draft_ready"],
+    ["draft_ready", "reviewing"],
+    ["reviewing", "published"],
+]
+
+revisions = [
+    ["reviewing", "idea_ready"],
+]
+```
+
+Load and register it:
+
+```python
+from quadro import load_lifecycle
+
+name, lifecycle = load_lifecycle("article.lifecycle.toml")
+
+board = QuadroBoard(
+    SqliteBoardBackend(),
+    profile_resolver={"article": name},
+    custom_profiles={name: lifecycle},
+    network=network,
+)
+```
+
+All examples support a `--lifecycle` flag to load from a TOML file instead of
+the built-in Python declaration.
+
 **WorkerPool**
 
 For pipelines with multiple capabilities, `WorkerPool` handles agent creation,

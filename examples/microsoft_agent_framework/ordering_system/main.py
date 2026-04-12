@@ -118,16 +118,19 @@ def main(
     max_cycles: int = 1000,
     profile: str = "steady",
     choreography_name: str | None = None,
+    lifecycle: object | None = None,
 ) -> None:
     HERE = Path(__file__).parent
     db_path = str(HERE / "orders.db")
+
+    active_lifecycle = lifecycle or ORDER_LIFECYCLE
 
     # ── Board ──────────────────────────────────────────────────────────────────
     network = LocalA2ANetwork()
     board = QuadroBoard(
         SqliteBoardBackend(db_path),
         profile_resolver={"order": "order"},
-        custom_profiles={"order": ORDER_LIFECYCLE},
+        custom_profiles={"order": active_lifecycle},
         network=network,
     )
     bc = board.client()
@@ -307,11 +310,25 @@ if __name__ == "__main__":
         choices=list(CHOREOGRAPHIES.keys()),
         help="Named choreography — cycles through profiles automatically",
     )
+    parser.add_argument(
+        "--lifecycle",
+        type=str,
+        default=None,
+        help="Path to a .lifecycle.toml file (overrides built-in lifecycle)",
+    )
 
     args = parser.parse_args()
+
+    lifecycle_override = None
+    if args.lifecycle:
+        from quadro.board.lifecycle_loader import load_lifecycle
+
+        _name, lifecycle_override = load_lifecycle(args.lifecycle)
+
     main(
         target_shipped=args.target,
         max_cycles=args.cycles,
         profile=args.profile,
         choreography_name=args.choreography,
+        lifecycle=lifecycle_override,
     )
