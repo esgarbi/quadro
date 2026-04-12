@@ -196,7 +196,7 @@ def main(
     print(f"  Mode: {mode}")
     print(f"{'═' * 60}")
 
-    articles_dir = HERE / "articles"
+    articles_dir = HERE / "output"
     if articles_dir.exists():
         files = sorted(articles_dir.glob("*.md"))
         print(f"\nArticles ({len(files)}):")

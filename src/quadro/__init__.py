@@ -9,6 +9,13 @@ from .board.client import BoardClient
 from .board.id_provider import DefaultTaskIdProvider
 from .board.lifecycle_loader import load_lifecycle
 from .board.state_machine import LifecycleBuilder, lifecycle
+from .dispatch import (
+    acknowledge_task,
+    dispatch_batch,
+    find_idle_worker,
+    fire_worker,
+    get_acknowledged,
+)
 from .errors import (
     ConflictError,
     NotFoundError,
@@ -17,26 +24,42 @@ from .errors import (
     ValidationError,
 )
 from .ombudsman import Ombudsman
+from .pipeline import (
+    BuiltPipeline,
+    Pipeline,
+    StageSpec,
+    ToolDescriptor,
+    generate_tool_descriptors,
+)
 from .runner import RunLoop
 from .ui import serve_board
 
 __all__ = [
     "BoardClient",
+    "BuiltPipeline",
     "ChiefAgent",
     "ConflictError",
     "DefaultTaskIdProvider",
     "LifecycleBuilder",
     "LocalA2ANetwork",
-    "load_lifecycle",
-    "NotFoundError",
     "Ombudsman",
+    "Pipeline",
     "QuadroBoard",
     "QuadroError",
     "RunLoop",
+    "StageSpec",
+    "ToolDescriptor",
     "TransitionError",
     "ValidationError",
     "WorkerAgent",
     "WorkerPool",
+    "acknowledge_task",
+    "dispatch_batch",
+    "find_idle_worker",
+    "fire_worker",
+    "generate_tool_descriptors",
+    "get_acknowledged",
     "lifecycle",
+    "load_lifecycle",
     "serve_board",
 ]

@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import random
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -21,10 +19,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from agent_framework.openai import OpenAIChatClient
-
 from shared import (
-    clean_llm_output,
     create_llm_client,
     dispatch_batch,
     find_idle_worker,
@@ -38,29 +33,7 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-
-# ── LLM helpers ────────────────────────────────────────────────────────────────
-
-
-def _client_local() -> OpenAIChatClient:
-    return create_llm_client()
-
-
-def _client_openai() -> OpenAIChatClient:
-    return create_llm_client(
-        api_key=os.environ.get("OPENAI_API_KEY", ""),
-        base_url="https://api.openai.com/v1/",
-        model_id=os.environ.get("OPENAI_MODEL_ID", "gpt-4.1"),
-    )
-
-
-def _client() -> OpenAIChatClient:
-    """Pick a client: 70% chance OpenAI, 30% local sglang."""
-    if random.random() > 0.3:
-        return _client_openai()
-    return _client_local()
-
-    # return _client_openai()
+_client = create_llm_client
 
 
 def _prompt(name: str) -> str:

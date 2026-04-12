@@ -23,7 +23,6 @@ The correct pattern (used throughout this file):
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Callable
 
@@ -32,8 +31,6 @@ from agent_framework import tool
 from shared import (
     acknowledge_task,
     dispatch_batch,
-    find_idle_worker,
-    fire_worker,
     get_acknowledged,
 )
 
@@ -63,83 +60,6 @@ def create_chief_tools(
         return board_fn(intent, payload)
 
     # ── Tool definitions ───────────────────────────────────────────────────────
-
-    @tool(
-        name="advance_to_validation",
-        description=("Send an order to validation. Pass in the task_id."),
-    )
-    def advance_to_validation(task_id: str) -> str:
-        state = _req("board.get_full_state", {})
-        task = next(
-            (t for t in state.get("tasks", []) if t["task_id"] == task_id), None
-        )
-        if not task:
-            return f"Order {task_id[:8]} not found."
-        _req(
-            "board.update_task",
-            {
-                "task_id": task_id,
-                "to_status": "validating",
-            },
-        )
-        return f"Order {task_id[:8]} advanced to validation."
-
-    @tool(
-        name="create_order",
-        description=(
-            "Create a new order task and dispatch it to validation. Pass in the customer name, product name, price, quantity, address, and sku."
-            "call all this tool for each order in the queue. "
-            "Returns immediately — the worker runs in the background."
-        ),
-    )
-    def create_order(
-        customer_name: str = "",
-        product_name: str = "",
-        price: float = 0,
-        quantity: int = 0,
-        address: str = "",
-        sku: str = "",
-    ) -> str:
-
-        order_label = (
-            f"Order: {product_name} x{quantity} for {customer_name} at {address}"
-        )
-        result = _req(
-            "board.post_task",
-            {
-                "task_type": "order",
-                "label": order_label,
-                "notes": [
-                    json.dumps(
-                        {
-                            "customer_name": customer_name,
-                            "product_name": product_name,
-                            "price": price,
-                            "quantity": quantity,
-                            "address": address,
-                            "sku": sku,
-                        }
-                    )
-                ],
-            },
-        )
-        task_id = result["task"]["task_id"]
-
-        w = find_idle_worker(board_fn, worker_registry, "validation")
-        if w:
-            agent_id, url = w
-            _req(
-                "board.update_task",
-                {
-                    "task_id": task_id,
-                    "to_status": "validating",
-                    "assigned_to": agent_id,
-                },
-            )
-            fire_worker(network, url, task_id)
-            return f"Order created and dispatched to validation: {task_id[:8]}"
-        else:
-            return f"Order created (queued, no idle validation worker): {task_id[:8]}"
 
     @tool(
         name="advance_to_stock_check",
@@ -214,31 +134,6 @@ def create_chief_tools(
         if skipped:
             msg += f" | {len(skipped)} skipped (no idle logistics worker): {', '.join(skipped)}"
         return msg
-
-    @tool(
-        name="abandon_order",
-        description=(
-            "Acknowledge a HUMAN_REVIEW or validation_failed order so it stops appearing "
-            "in DISPATCH ALL. The pipeline slot is already freed. "
-            "Call this once per failed order. Provide the full task_id."
-        ),
-    )
-    def abandon_order(task_id: str) -> str:
-        state = _req("board.get_full_state", {})
-        task = next(
-            (t for t in state.get("tasks", []) if t["task_id"] == task_id), None
-        )
-        if not task:
-            return f"Order {task_id[:8]} not found."
-        acknowledge_task(board_fn, task_id)
-        _req(
-            "board.update_task",
-            {
-                "task_id": task_id,
-                "to_status": "abandoned",
-            },
-        )
-        return f"Order {task_id[:8]} abandoned."
 
     @tool(
         name="discard_order",
