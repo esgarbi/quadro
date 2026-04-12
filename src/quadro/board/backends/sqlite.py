@@ -144,6 +144,12 @@ class SqliteBoardBackend(BoardBackend):
                     value_json TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS idempotency_keys (
+                    key TEXT PRIMARY KEY,
+                    fingerprint TEXT NOT NULL,
+                    result_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 """)
             self._conn.commit()
 

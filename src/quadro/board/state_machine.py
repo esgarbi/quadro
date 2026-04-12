@@ -3,11 +3,10 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass
 
+from ..errors import TransitionError
 from .records import TaskStatus
 
-
-class TransitionError(ValueError):
-    """Raised when task transition is invalid for profile."""
+__all__ = ["TransitionError"]
 
 
 REVIEW_REQUIRED_TRANSITIONS: set[tuple[TaskStatus, TaskStatus]] = {

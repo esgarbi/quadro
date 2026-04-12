@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from ..errors import ValidationError
+
 FROZEN_EVENT_TYPES = frozenset(
     {
         "task_posted",
@@ -100,8 +102,8 @@ def validate_request_envelope(envelope: dict[str, Any]) -> None:
     required = {"intent", "request_id", "timestamp", "payload"}
     missing = required - envelope.keys()
     if missing:
-        raise ValueError(f"Missing request fields: {sorted(missing)}")
+        raise ValidationError(f"Missing request fields: {sorted(missing)}")
     if envelope["intent"] not in ALLOWED_INTENTS:
-        raise ValueError(f"Unsupported intent: {envelope['intent']}")
+        raise ValidationError(f"Unsupported intent: {envelope['intent']}")
     if not isinstance(envelope["payload"], dict):
-        raise ValueError("payload must be an object")
+        raise ValidationError("payload must be an object")
