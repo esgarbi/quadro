@@ -359,8 +359,6 @@ class SqliteBoardBackend(BoardBackend):
 
     def delete_data(self, key: str) -> bool:
         with self._lock:
-            cursor = self._conn.execute(
-                "DELETE FROM data_entries WHERE key=?", (key,)
-            )
+            cursor = self._conn.execute("DELETE FROM data_entries WHERE key=?", (key,))
             self._conn.commit()
             return cursor.rowcount > 0

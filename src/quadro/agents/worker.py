@@ -7,7 +7,7 @@ from collections.abc import Callable
 from uuid import uuid4
 
 from ..a2a.contracts import A2ARequest, A2AResponse, validate_request_envelope
-from ..a2a.dispatch import LocalA2ANetwork
+from ..a2a.dispatch import A2ATransport
 from ..board.client import BoardClient
 from ..board.records import AgentStatus
 from .hydration import hydrate_worker_context
@@ -22,7 +22,7 @@ class WorkerAgent:
         capabilities: list[str],
         url: str,
         board_url: str,
-        network: LocalA2ANetwork,
+        network: A2ATransport,
         execute_fn: Callable[[dict, Callable[[str, dict], dict]], str],
         reviewer_mode: bool = False,
         chief_url: str | None = None,
