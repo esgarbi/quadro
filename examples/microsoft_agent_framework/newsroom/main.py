@@ -78,16 +78,19 @@ def main(
     target_articles: int = 20,
     max_cycles: int = 1500,
     choreography_name: str | None = None,
+    lifecycle: object | None = None,
 ) -> None:
     HERE = Path(__file__).parent
     db_path = str(HERE / "newsroom.db")
+
+    active_lifecycle = lifecycle or ARTICLE_LIFECYCLE
 
     # ── Board ──────────────────────────────────────────────────────────────────
     network = LocalA2ANetwork()
     board = QuadroBoard(
         SqliteBoardBackend(db_path),
         profile_resolver={"article": "article"},
-        custom_profiles={"article": ARTICLE_LIFECYCLE},
+        custom_profiles={"article": active_lifecycle},
         network=network,
     )
     bc = board.client()
@@ -224,10 +227,24 @@ if __name__ == "__main__":
         choices=list(CHOREOGRAPHIES.keys()),
         help="Named choreography — overrides default uniform batching",
     )
+    parser.add_argument(
+        "--lifecycle",
+        type=str,
+        default=None,
+        help="Path to a .lifecycle.toml file (overrides built-in lifecycle)",
+    )
 
     args = parser.parse_args()
+
+    lifecycle_override = None
+    if args.lifecycle:
+        from quadro.board.lifecycle_loader import load_lifecycle
+
+        _name, lifecycle_override = load_lifecycle(args.lifecycle)
+
     main(
         target_articles=args.target,
         max_cycles=args.cycles,
         choreography_name=args.choreography,
+        lifecycle=lifecycle_override,
     )

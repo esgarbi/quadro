@@ -194,14 +194,25 @@ def main() -> None:
         "--orders", type=int, default=4, help="Stop after N orders delivered"
     )
     parser.add_argument("--cycles", type=int, default=60, help="Maximum run cycles")
+    parser.add_argument(
+        "--lifecycle", type=str, default=None, help="Path to a .lifecycle.toml file"
+    )
     args = parser.parse_args()
+
+    # Lifecycle — from TOML file or Python builder
+    if args.lifecycle:
+        from quadro.board.lifecycle_loader import load_lifecycle
+
+        _name, profile = load_lifecycle(args.lifecycle)
+    else:
+        profile = ORDER_PROFILE
 
     # Board
     network = LocalA2ANetwork()
     board = QuadroBoard(
         SqliteBoardBackend(),
         profile_resolver={"order": "order"},
-        custom_profiles={"order": ORDER_PROFILE},
+        custom_profiles={"order": profile},
         network=network,
     )
     bc = board.client()

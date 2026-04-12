@@ -1,0 +1,21 @@
+name = "order"
+
+steps = [
+    ["UNASSIGNED", "validating"],
+    ["validating", "validated"],
+    ["validated", "checking_stock"],
+    ["checking_stock", "stock_confirmed"],
+    ["needs_procurement", "procuring"],
+    ["procuring", "procured"],
+    ["stock_confirmed", "shipping"],
+    ["shipping", "shipped"],
+]
+
+branches = [
+    ["validating", "validation_failed"],
+    ["checking_stock", "needs_procurement"],
+]
+
+loops = [
+    ["procured", "checking_stock"],
+]
