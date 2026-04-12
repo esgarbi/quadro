@@ -66,3 +66,18 @@ def test_data_entries_emit_no_events() -> None:
     _request(network, url, "board.put_data", {"key": "WH-MAIN", "value": {"SKU-A": 5}})
     events = _request(network, url, "board.stream_events", {"since_sequence": 0})
     assert events["events"] == []
+
+
+def test_delete_data_removes_key() -> None:
+    _, network, url = _make_board()
+    _request(network, url, "board.put_data", {"key": "temp", "value": {"x": 1}})
+    result = _request(network, url, "board.delete_data", {"key": "temp"})
+    assert result["deleted"] is True
+    get_result = _request(network, url, "board.get_data", {"key": "temp"})
+    assert get_result["value"] is None
+
+
+def test_delete_data_missing_key_returns_false() -> None:
+    _, network, url = _make_board()
+    result = _request(network, url, "board.delete_data", {"key": "nonexistent"})
+    assert result["deleted"] is False

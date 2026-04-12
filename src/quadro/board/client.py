@@ -136,13 +136,25 @@ class BoardClient:
 
     # ── Data store ─────────────────────────────────────────────────────────────
 
-    def put_data(self, key: str, value: dict) -> None:
+    def put_data(self, key: str, value: object) -> None:
         """Store an arbitrary value under key. Emits no events."""
         self.request("board.put_data", {"key": key, "value": value})
 
     def get_data(self, key: str) -> object:
         """Retrieve a stored value by key. Returns None if not found."""
         return self.request("board.get_data", {"key": key})["value"]
+
+    def delete_data(self, key: str) -> bool:
+        """Delete a data entry. Returns True if the key existed."""
+        return self.request("board.delete_data", {"key": key})["deleted"]
+
+    # ── Filtered queries ─────────────────────────────────────────────────────
+
+    def list_tasks_by_status(self, statuses: set[str]) -> list[dict]:
+        """Return tasks matching any of the given statuses."""
+        return self.request(
+            "board.list_tasks_by_status", {"statuses": sorted(statuses)}
+        )["tasks"]
 
     # ── Snapshot ──────────────────────────────────────────────────────────────
 

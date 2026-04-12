@@ -263,10 +263,14 @@ class QuadroBoard:
                 )
             elif intent == "board.stream_events":
                 result = self._stream_events(payload)
+            elif intent == "board.list_tasks_by_status":
+                result = self._list_tasks_by_status(payload)
             elif intent == "board.put_data":
                 result = self._put_data(payload)
             elif intent == "board.get_data":
                 result = self._get_data(payload)
+            elif intent == "board.delete_data":
+                result = self._delete_data(payload)
             elif intent == "board.get_task_history":
                 result = self._get_task_history(payload)
             elif intent == "board.get_agent_activity":
@@ -409,6 +413,12 @@ class QuadroBoard:
             "_terminal_statuses": self._all_terminal_statuses(),
         }
 
+    def _list_tasks_by_status(self, payload: dict) -> dict:
+        raw = payload.get("statuses", [])
+        statuses = set(raw) if isinstance(raw, list) else set()
+        tasks = [t.to_dict() for t in self._backend.list_tasks_by_status(statuses)]
+        return {"tasks": tasks}
+
     def _register_agent(self, payload: dict) -> dict:
         required = {"agent_id", "name", "url", "version", "capabilities", "description"}
         missing = required - payload.keys()
@@ -474,6 +484,11 @@ class QuadroBoard:
         key = payload["key"]
         value = self._backend.get_data(key)
         return {"key": key, "value": value}
+
+    def _delete_data(self, payload: dict) -> dict:
+        key = payload["key"]
+        existed = self._backend.delete_data(key)
+        return {"key": key, "deleted": existed}
 
     def _get_task_history(self, payload: dict) -> dict:
         task_id = payload["task_id"]
