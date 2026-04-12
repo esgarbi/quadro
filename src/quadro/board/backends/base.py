@@ -71,3 +71,11 @@ class BoardBackend(ABC):
     @abstractmethod
     def delete_data(self, key: str) -> bool:
         """Delete a data entry. Returns True if key existed, False otherwise."""
+
+    @abstractmethod
+    def archive_task(self, task_id: str) -> bool:
+        """Move a task to the archive. Returns True if task existed."""
+
+    @abstractmethod
+    def get_archived_task(self, task_id: str) -> TaskRecord | None:
+        """Retrieve an archived task by ID."""

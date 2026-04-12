@@ -16,19 +16,14 @@ before Quadro can be used outside a single Python process.
 
 ---
 
-### 1. Idempotency deduplication
+### 1. ~~Idempotency deduplication~~ ✅ Resolved
 
-**Priority:** High · **Ref:** M4.2
+**Fixed in:** PR #4
 
-The `idempotency_key` field is accepted on all mutating intents and persisted in the
-event log. Deduplication is not enforced — duplicate requests re-execute the transition.
-
-**What needs to happen:**
-- `src/quadro/board/idempotency.py` — `IdempotencyStore` checks keys before execution
-- New SQLite table: `idempotency_keys (key PK, fingerprint, result_json, created_at)`
-- On key hit with matching fingerprint: return cached result
-- On key hit with different fingerprint: raise `ConflictError`
-- `QuadroBoard` gains an optional `idempotency_store` parameter
+`IdempotencyStore` with SQLite-backed `check()`/`store()` using `_stable_hash`
+fingerprinting. `QuadroBoard` accepts optional `idempotency_store` parameter.
+Mutating intents with `idempotency_key` return cached results on match, raise
+`ConflictError` on fingerprint mismatch. M4.2 complete.
 
 ---
 
@@ -84,17 +79,14 @@ For AWS Lambda / serverless deployments.
 
 ---
 
-### 6. A2A network interface abstraction
+### 6. ~~A2A network interface abstraction~~ ✅ Resolved
 
-**Priority:** Medium · **Prerequisite for:** item 7
+**Fixed in:** PR #3
 
-`BoardClient` is typed to `LocalA2ANetwork` directly. No Protocol or ABC exists for
-the network layer, making `HttpA2ANetwork` for multi-process deployments structurally
-awkward.
-
-**Fix:** Add a `Protocol` in `a2a/dispatch.py` with `request()` and
-`register_endpoint()`. Type `BoardClient` against it. `LocalA2ANetwork` satisfies
-it structurally with no changes.
+`A2ATransport` Protocol in `a2a/dispatch.py`. All components (`BoardClient`,
+`ChiefAgent`, `WorkerAgent`, `Ombudsman`, `EventSubscriber`) typed against the
+Protocol. `LocalA2ANetwork` satisfies it structurally with zero changes. Unblocks
+`HttpA2ANetwork` for multi-process deployment.
 
 ---
 
@@ -113,39 +105,33 @@ The Chief remains reactive. Workers can be separate processes connecting over HT
 
 ---
 
-### 8. Filtered task queries
+### 8. ~~Filtered task queries~~ ✅ Resolved
 
-**Priority:** Medium
+**Fixed in:** PR #2
 
-`_get_full_state()` returns all tasks on every call. Ombudsman, Chief, and Board UI
-all call it; all filtering happens in Python after full deserialisation.
-
-**Fix:** Add `list_tasks_by_status(statuses: set[str]) -> list[TaskRecord]` to
-`BoardBackend` ABC. Implement in all backends. Use in `Ombudsman.nudge()`.
+`list_tasks_by_status(statuses)` on `BoardBackend` ABC and SQLite. New
+`board.list_tasks_by_status` intent. Ombudsman uses filtered query instead of
+`get_full_state`, avoiding full task table deserialization on every scan.
 
 ---
 
-### 9. Task archival
+### 9. ~~Task archival~~ ✅ Resolved
 
-**Priority:** Medium
+**Fixed in:** PR #5
 
-Terminal tasks accumulate in the `tasks` table indefinitely. At scale,
-`list_tasks()` deserialises all of them on every board read.
-
-**Fix:** Add a `board.archive_task` intent that moves terminal tasks to an
-`archived_tasks` table (same schema) and excludes them from `list_tasks()`.
-Events are immutable and remain in the event log forever.
+`board.archive_task` intent moves terminal tasks to `archived_tasks` table.
+`list_tasks()` and `get_full_state()` exclude archived tasks. `get_task()` falls
+back to the archive so task history remains queryable. Only terminal tasks can be
+archived (validated against lifecycle-derived terminal statuses).
 
 ---
 
-### 10. `delete_data` board intent
+### 10. ~~`delete_data` board intent~~ ✅ Resolved
 
-**Priority:** Low
+**Fixed in:** PR #2
 
-`put_data` and `get_data` exist. There is no way to remove a key from `data_entries`.
-
-**Fix:** Add `board.delete_data` intent, `BoardBackend.delete_data(key)`,
-and `BoardClient.delete_data(key)`.
+`board.delete_data` intent, `BoardBackend.delete_data(key)`, and
+`BoardClient.delete_data(key)`. Returns whether the key existed.
 
 ---
 
@@ -452,25 +438,19 @@ scheduler and executor are the same component.
 
 ---
 
-### 20. `put_data` / `get_data` type annotations
+### 20. ~~`put_data` / `get_data` type annotations~~ ✅ Resolved
 
-**Priority:** Low
+**Fixed in:** PR #2
 
-Both `BoardBackend` and `BoardClient` declare `value: dict` but actual stored values
-include lists and arbitrary JSON.
-
-**Fix:** Change to `value: Any`.
+Changed `value: dict` to `value: Any` across `BoardBackend` ABC, SQLite backend,
+and `BoardClient`.
 
 ---
 
-### 21. Revision path integration test
+### 21. ~~Revision path integration test~~ ✅ Resolved
 
-**Priority:** Low · **Ref:** M4.3
-
-`test_revision_cycle.py` exists but a more explicit `test_revision_path.py` walking
-the full revision cycle with `assigned_to` audit trail at each phase is missing.
-
-See `IMPLEMENTATION_ROADMAP.md` under M4.3.
+`tests/integration/test_revision_path.py` walks the full `review_required` revision
+cycle verifying `assigned_to` audit trail at each phase. M4.3 complete.
 
 ---
 
