@@ -3,19 +3,8 @@ from __future__ import annotations
 from ..a2a.contracts import A2ARequest
 from ..a2a.dispatch import LocalA2ANetwork
 
-_DEFAULT_TERMINAL_STATUSES: frozenset[str] = frozenset(
-    {
-        "COMPLETE",
-        "HUMAN_REVIEW",
-        "ON_HOLD",
-        "shipped",
-        "published",
-        "resolved",
-        "delivered",
-        "validation_failed",
-        "abandoned",
-        "cancelled",
-    }
+_FALLBACK_TERMINAL_STATUSES: frozenset[str] = frozenset(
+    {"COMPLETE", "HUMAN_REVIEW", "ON_HOLD"}
 )
 
 
@@ -174,13 +163,17 @@ class BoardClient:
         Returns None if there is nothing actionable on the board — the chief policy
         can use this as a signal to return early without calling the LLM.
         """
-        _terminal = (
-            frozenset(terminal_statuses)
-            if terminal_statuses
-            else _DEFAULT_TERMINAL_STATUSES
-        )
-
         state = self.full_state()
+
+        if terminal_statuses:
+            _terminal = frozenset(terminal_statuses)
+        else:
+            board_terminals = state.get("_terminal_statuses")
+            if board_terminals:
+                _terminal = frozenset(board_terminals)
+            else:
+                _terminal = _FALLBACK_TERMINAL_STATUSES
+
         tasks = state.get("tasks", [])
         data = state.get("data", {})
         agents = state.get("agents", [])

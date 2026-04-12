@@ -87,18 +87,27 @@ def test_chief_telemetry_consecutive_noops() -> None:
 
     chief = ChiefAgent(network=network, board_url=board_url)
 
-    # No tasks → noop
-    chief.nudge()
+    # Seed/ombudsman wakes with nothing to do are expected — not noops.
+    chief.nudge(trigger="seed")
+    telem = bc.get_data("_chief_telemetry")
+    assert telem["consecutive_noops"] == 0
+
+    chief.nudge(trigger="ombudsman")
+    telem = bc.get_data("_chief_telemetry")
+    assert telem["consecutive_noops"] == 0
+
+    # Worker-triggered wake with nothing to do IS a noop (signal noise).
+    chief.wake(trigger="worker")
     telem = bc.get_data("_chief_telemetry")
     assert telem["consecutive_noops"] == 1
 
-    chief.nudge()
+    chief.wake(trigger="worker")
     telem = bc.get_data("_chief_telemetry")
     assert telem["consecutive_noops"] == 2
 
     # Post a task → chief dispatches it → noops reset
     bc.post_task("work", "test task")
-    chief.nudge()
+    chief.wake(trigger="worker")
     telem = bc.get_data("_chief_telemetry")
     assert telem["consecutive_noops"] == 0
 

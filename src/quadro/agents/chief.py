@@ -59,7 +59,7 @@ class ChiefAgent:
 
     def handle_wake_request(self, envelope: dict) -> dict:
         """A2A endpoint. Workers call this after completing their board writes."""
-        request_id = envelope.get("request_id", uuid4().hex[:5])
+        request_id = envelope.get("request_id", uuid4().hex[:12])
         self.wake(trigger="worker")
         return A2AResponse(request_id=request_id, ok=True, result={}).to_dict()
 
@@ -152,7 +152,7 @@ class ChiefAgent:
         Silently skips tasks whose profiles don't support standard transitions
         (e.g. custom profiles where UNASSIGNED → IN_PROGRESS is not valid).
         """
-        tasks = payload["tasks"]
+        tasks = sorted(payload["tasks"], key=lambda t: t.get("priority", 5))
         agents = payload["agents"]
         actions = 0
 
@@ -256,9 +256,9 @@ class ChiefAgent:
                 if len(buf) > 20:
                     buf.pop(0)
             if actions_taken is not None:
-                if actions_taken == 0:
+                if actions_taken == 0 and t.get("last_trigger") == "worker":
                     t["consecutive_noops"] += 1
-                else:
+                elif actions_taken > 0:
                     t["consecutive_noops"] = 0
             snapshot = dict(t)
 

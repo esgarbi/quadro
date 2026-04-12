@@ -60,7 +60,7 @@ class WorkerAgent:
         return response["result"]
 
     def handle_request(self, envelope: dict) -> dict:
-        request_id = envelope.get("request_id", uuid4().hex[:5])
+        request_id = envelope.get("request_id", uuid4().hex[:12])
         try:
             validate_request_envelope(envelope)
             if envelope["intent"] != "worker.execute_task":
@@ -97,17 +97,6 @@ class WorkerAgent:
         )
         _exec_log = logging.getLogger(__name__)
 
-        _TERMINAL_STATUSES = frozenset(
-            {
-                "published",
-                "COMPLETE",
-                "HUMAN_REVIEW",
-                "abandoned",
-                "cancelled",
-                "delivered",
-            }
-        )
-
         try:
             raw = self.execute_fn(context, self._board_request)
             if asyncio.iscoroutine(raw):
@@ -139,18 +128,14 @@ class WorkerAgent:
                 exc,
             )
             try:
-                current = self._board_request(
-                    "board.get_task", {"task_id": task["task_id"]}
-                )["task"]
-                if current["status"] not in _TERMINAL_STATUSES:
-                    self._board_request(
-                        "board.update_task",
-                        {
-                            "task_id": task["task_id"],
-                            "to_status": "HUMAN_REVIEW",
-                            "notes_append": f"Worker error: {str(exc)[:500]}",
-                        },
-                    )
+                self._board_request(
+                    "board.update_task",
+                    {
+                        "task_id": task["task_id"],
+                        "to_status": "HUMAN_REVIEW",
+                        "notes_append": f"Worker error: {str(exc)[:500]}",
+                    },
+                )
             except Exception as board_exc:  # noqa: BLE001
                 _exec_log.error(
                     "Worker %s: failed to mark task %s as HUMAN_REVIEW: %s",

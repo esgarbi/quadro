@@ -48,11 +48,9 @@ ALLOWED_INTENTS = {
     "board.get_data",
     "board.get_task_history",
     "board.get_agent_activity",
-    "chief.apply_actions",
     "chief.wake",
     "worker.execute_task",
     "worker.post_result",
-    "worker.request_help",
 }
 
 
@@ -69,7 +67,7 @@ class A2ARequest:
     timestamp: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        request_id = self.request_id or uuid4().hex[:5]
+        request_id = self.request_id or uuid4().hex[:12]
         timestamp = self.timestamp or utc_now_iso()
         return {
             "intent": self.intent,

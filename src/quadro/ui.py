@@ -61,17 +61,8 @@ logger = logging.getLogger(__name__)
 
 _UI_VERSION = "1.2.0"
 
-# Terminal statuses always appear as the rightmost columns
-_TERMINAL_STATUSES: frozenset[str] = frozenset(
-    {
-        "COMPLETE",
-        "HUMAN_REVIEW",
-        "published",
-        "delivered",
-        "abandoned",
-        "cancelled",
-        "resolved",
-    }
+_FALLBACK_TERMINAL_STATUSES: frozenset[str] = frozenset(
+    {"COMPLETE", "HUMAN_REVIEW", "ON_HOLD"}
 )
 
 
@@ -84,6 +75,7 @@ def _derive_col_order(
     events: list[dict],
     tasks: list[dict],
     explicit: list[str] | None = None,
+    terminal_statuses: frozenset[str] | None = None,
 ) -> list[str]:
     """
     Return a stable pipeline-ordered list of status strings.
@@ -94,6 +86,8 @@ def _derive_col_order(
     3. current task statuses — for any not yet in event log
     4. terminal statuses moved to the right end
     """
+    terminals = terminal_statuses or _FALLBACK_TERMINAL_STATUSES
+
     if explicit is not None:
         seen: set[str] = set(explicit)
         order: list[str] = list(explicit)
@@ -112,8 +106,8 @@ def _derive_col_order(
             seen.add(s)
             order.append(s)
 
-    non_terminal = [s for s in order if s not in _TERMINAL_STATUSES]
-    terminal = [s for s in order if s in _TERMINAL_STATUSES]
+    non_terminal = [s for s in order if s not in terminals]
+    terminal = [s for s in order if s in terminals]
     return [*non_terminal, *terminal]
 
 
@@ -317,11 +311,19 @@ class _Handler(BaseHTTPRequestHandler):
                 if isinstance(stored_order, list) and stored_order:
                     explicit = stored_order
 
+            board_terminals = state.get("_terminal_statuses")
+            terminal_set = (
+                frozenset(board_terminals)
+                if board_terminals
+                else _FALLBACK_TERMINAL_STATUSES
+            )
+
             all_events = self.source.all_events()
             col_order = _derive_col_order(
                 all_events,
                 state.get("tasks", []),
                 explicit=explicit,
+                terminal_statuses=terminal_set,
             )
 
             chief_telem = state.get("data", {}).get("_chief_telemetry")
@@ -775,9 +777,7 @@ const MAX_EVENTS = 40;
 const _archivedIds = new Set();
 const _cardElements = new Map();
 
-const TERMINAL_STATUSES = new Set([
-  'COMPLETE','HUMAN_REVIEW','published','delivered','abandoned','cancelled','resolved', 'shipped'
-]);
+let TERMINAL_STATUSES = new Set(['COMPLETE','HUMAN_REVIEW','ON_HOLD']);
 
 const STATUS_COLORS = {
   UNASSIGNED:'#64748b', IN_PROGRESS:'#38bdf8', PENDING_REVIEW:'#fbbf24',
@@ -1250,6 +1250,9 @@ async function fetchState() {
     renderAgents(_state.agents, _state.tasks);
     renderData(_state.data);
     updateGoalBadge(_state.tasks, _state.data);
+    if (_state._terminal_statuses && _state._terminal_statuses.length) {
+      TERMINAL_STATUSES = new Set(_state._terminal_statuses);
+    }
     const meta = _state._meta;
     if (meta) {
       document.getElementById('last-updated').textContent = fmtTime(meta.server_time);
