@@ -307,8 +307,6 @@ board.get_task_history
 board.get_agent_activity
 worker.post_result
 worker.execute_task
-worker.request_help
-chief.apply_actions
 chief.wake
 ```
 

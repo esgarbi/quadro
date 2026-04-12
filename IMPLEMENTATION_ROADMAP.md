@@ -23,7 +23,7 @@ described in `README.md` and specified in `QUADRO_SPEC.md`.
 | M4.0 | Telemetry query intents | ✅ Complete |
 | M4.1 | Ombudsman | ✅ Complete |
 | M4.2 | Idempotency deduplication | ⬜ (key persisted; dedup not enforced — v0.1 known gap) |
-| M4.3 | Revision path integration test | 🔧 Next |
+| M4.3 | Revision path integration test | ✅ Complete |
 | M5 | Board UI + observability | ✅ Complete |
 
 ---
@@ -233,12 +233,10 @@ raise `ConflictError` on key collision with different payload.
 
 ---
 
-## M4.3 — Revision Path Integration Test ⬜
+## M4.3 — Revision Path Integration Test ✅
 
-**New test file:** `tests/integration/test_revision_path.py`
-
-No new production code. Explicitly walks a `review_required` task through the full
-revision cycle verifying `assigned_to` audit trail at each phase:
+`tests/integration/test_revision_path.py` walks a `review_required` task through
+the full revision cycle verifying the `assigned_to` audit trail at each phase:
 
 ```
 UNASSIGNED → IN_PROGRESS (writer)
@@ -246,9 +244,6 @@ UNASSIGNED → IN_PROGRESS (writer)
 → IN_PROGRESS (writer again) → PENDING_REVIEW
 → IN_PROGRESS (reviewer approves) → APPROVED → COMPLETE
 ```
-
-Note: `test_revision_cycle.py` already covers the basic revision path. This test
-is more explicit about the per-phase `assigned_to` audit trail.
 
 ---
 

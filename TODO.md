@@ -255,22 +255,14 @@ Sleep quality variables to model:
 
 ---
 
-### 23. Bug: Board UI reports noops on every cycle, not just Chief idle wakes
+### 23. ~~Bug: Board UI reports noops on every cycle, not just Chief idle wakes~~ ✅ Resolved
 
-**Priority:** High · **Type:** Bug
+**Fixed in:** PR #1 (fix/p0-structural-fixes)
 
-The Board UI reports a noop on every `RunLoop` cycle, even when the board state has
-not changed and the Chief was never woken. Noops should only be recorded when the
-Chief actually wakes up (via reactive signal) and finds nothing actionable to do —
-that is their diagnostic purpose. The current behaviour inflates the noop count and
-obscures the signal-to-noise ratio in the Chief telemetry panel, making the sleep
-study data (item 13) unreliable.
-
-**Expected behaviour:** A noop is emitted only when the Chief wakes, evaluates the
-board, and decides there is no work to dispatch or transition.
-
-**Actual behaviour:** A noop is emitted on every `RunLoop` poll cycle regardless of
-whether the Chief was triggered.
+Noops now only increment on reactive worker-triggered wakes where the Chief finds
+nothing actionable (signal noise). Seed and ombudsman safety-net nudges that find
+nothing are expected behaviour and no longer inflate the counter. The telemetry
+test (`test_chief_telemetry_consecutive_noops`) verifies the corrected semantics.
 
 ---
 
