@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..a2a.contracts import A2ARequest
-from ..a2a.dispatch import LocalA2ANetwork
+from ..a2a.dispatch import A2ATransport
 
 _FALLBACK_TERMINAL_STATUSES: frozenset[str] = frozenset(
     {"COMPLETE", "HUMAN_REVIEW", "ON_HOLD"}
@@ -10,11 +10,11 @@ _FALLBACK_TERMINAL_STATUSES: frozenset[str] = frozenset(
 
 class BoardClient:
     """
-    Typed, error-raising wrapper around LocalA2ANetwork + board URL.
+    Typed, error-raising wrapper around an A2ATransport + board URL.
 
     Eliminates the _req() helper and board_fn closure that every example
     and every worker agent currently duplicates. All calls go through
-    LocalA2ANetwork.request() — the A2A boundary is never bypassed.
+    the transport's request() method — the A2A boundary is never bypassed.
 
     Usage:
         client = BoardClient(network, "a2a://board")
@@ -23,12 +23,12 @@ class BoardClient:
         state = client.full_state()
     """
 
-    def __init__(self, network: LocalA2ANetwork, board_url: str) -> None:
+    def __init__(self, network: A2ATransport, board_url: str) -> None:
         self._network = network
         self._board_url = board_url
 
     @property
-    def network(self) -> LocalA2ANetwork:
+    def network(self) -> A2ATransport:
         """The A2A network this client sends requests through."""
         return self._network
 

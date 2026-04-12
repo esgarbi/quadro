@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .contracts import A2ARequest
-from .dispatch import LocalA2ANetwork
+from .dispatch import A2ATransport
 
 
 @dataclass
 class EventSubscriber:
-    network: LocalA2ANetwork
+    network: A2ATransport
     board_url: str
     cursor: int = 0
 

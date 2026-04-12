@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from ..a2a.contracts import A2AResponse, FROZEN_EVENT_TYPES, validate_request_envelope
-from ..a2a.dispatch import LocalA2ANetwork
+from ..a2a.dispatch import A2ATransport
 from .backends.base import BoardBackend
 from .id_provider import DefaultTaskIdProvider, TaskIdProvider
 from .records import (
@@ -163,7 +163,7 @@ class QuadroBoard:
         profile_resolver: dict[str, str] | None = None,
         custom_profiles: dict[str, set[tuple[str, str]]] | None = None,
         *,
-        network: LocalA2ANetwork | None = None,
+        network: A2ATransport | None = None,
         url: str | None = None,
         id_provider: TaskIdProvider | None = None,
     ) -> None:
@@ -179,7 +179,7 @@ class QuadroBoard:
         }
 
         self._url: str = url or self._DEFAULT_URL
-        self._network: LocalA2ANetwork | None = network
+        self._network: A2ATransport | None = network
         if network is not None:
             network.register_endpoint(self._url, self.handle_request)
 

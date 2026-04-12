@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from .a2a.contracts import A2ARequest
-from .a2a.dispatch import LocalA2ANetwork
+from .a2a.dispatch import A2ATransport
 from .board.records import TaskStatus, utc_now
 
 
@@ -22,7 +22,7 @@ class Ombudsman:
     def __init__(
         self,
         *,
-        network: LocalA2ANetwork,
+        network: A2ATransport,
         board_url: str,
         heartbeat_timeout_seconds: int = 3000,  # 50min — generous for LLM calls
         working_statuses: set[str] | None = None,

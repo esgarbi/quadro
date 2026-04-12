@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from ..a2a.contracts import A2ARequest, A2AResponse
-from ..a2a.dispatch import LocalA2ANetwork
+from ..a2a.dispatch import A2ATransport
 from ..board.client import BoardClient
 from ..board.records import AgentStatus
 from .hydration import hydrate_chief_context
@@ -27,7 +27,7 @@ class ChiefAgent:
     def __init__(
         self,
         *,
-        network: LocalA2ANetwork,
+        network: A2ATransport,
         board_url: str,
         chief_url: str | None = None,
         policy: Callable[[dict], None] | None = None,

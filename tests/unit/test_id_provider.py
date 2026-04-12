@@ -6,7 +6,6 @@ from quadro import DefaultTaskIdProvider, QuadroBoard
 from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.board.id_provider import TaskIdProvider
 
-
 # ── 1. Default provider: length and character set ────────────────────────────
 
 
