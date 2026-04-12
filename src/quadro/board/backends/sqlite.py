@@ -216,6 +216,18 @@ class SqliteBoardBackend(BoardBackend):
             ).fetchall()
         return [_task_from_row(row) for row in rows]
 
+    def list_tasks_by_status(self, statuses: set[str]) -> list[TaskRecord]:
+        if not statuses:
+            return []
+        placeholders = ",".join("?" for _ in statuses)
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT * FROM tasks WHERE status IN ({placeholders})"
+                " ORDER BY priority ASC, created_at ASC",
+                tuple(statuses),
+            ).fetchall()
+        return [_task_from_row(row) for row in rows]
+
     def upsert_agent(self, agent: AgentRecord) -> None:
         with self._lock:
             self._conn.execute(
@@ -315,7 +327,7 @@ class SqliteBoardBackend(BoardBackend):
             ).fetchall()
         return [_event_from_row(row) for row in rows]
 
-    def put_data(self, key: str, value: dict) -> None:
+    def put_data(self, key: str, value: object) -> None:
         with self._lock:
             self._conn.execute(
                 """
@@ -329,7 +341,7 @@ class SqliteBoardBackend(BoardBackend):
             )
             self._conn.commit()
 
-    def get_data(self, key: str) -> dict | None:
+    def get_data(self, key: str) -> object | None:
         with self._lock:
             row = self._conn.execute(
                 "SELECT value_json FROM data_entries WHERE key=?", (key,)
@@ -338,9 +350,17 @@ class SqliteBoardBackend(BoardBackend):
             return None
         return json.loads(row["value_json"])
 
-    def list_data(self) -> dict[str, dict]:
+    def list_data(self) -> dict[str, object]:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT key, value_json FROM data_entries"
             ).fetchall()
         return {row["key"]: json.loads(row["value_json"]) for row in rows}
+
+    def delete_data(self, key: str) -> bool:
+        with self._lock:
+            cursor = self._conn.execute(
+                "DELETE FROM data_entries WHERE key=?", (key,)
+            )
+            self._conn.commit()
+            return cursor.rowcount > 0

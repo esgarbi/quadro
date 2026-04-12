@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from ..records import AgentRecord, EventRecord, TaskRecord
 
@@ -25,6 +26,10 @@ class BoardBackend(ABC):
     @abstractmethod
     def list_tasks(self) -> list[TaskRecord]:
         pass
+
+    @abstractmethod
+    def list_tasks_by_status(self, statuses: set[str]) -> list[TaskRecord]:
+        """Tasks matching any of the given statuses, ordered by priority ASC."""
 
     @abstractmethod
     def upsert_agent(self, agent: AgentRecord) -> None:
@@ -55,10 +60,14 @@ class BoardBackend(ABC):
         """All events involving a specific agent_id, ordered by sequence_id ASC."""
 
     @abstractmethod
-    def put_data(self, key: str, value: dict) -> None: ...
+    def put_data(self, key: str, value: Any) -> None: ...
 
     @abstractmethod
-    def get_data(self, key: str) -> dict | None: ...
+    def get_data(self, key: str) -> Any | None: ...
 
     @abstractmethod
-    def list_data(self) -> dict[str, dict]: ...
+    def list_data(self) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def delete_data(self, key: str) -> bool:
+        """Delete a data entry. Returns True if key existed, False otherwise."""
