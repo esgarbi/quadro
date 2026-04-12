@@ -14,6 +14,7 @@ from .records import (
     utc_now,
 )
 from .state_machine import (
+    STANDARD_TERMINAL_STATUSES,
     Lifecycle,
     TransitionError,
     compute_custom_terminal_statuses,
@@ -238,7 +239,7 @@ class QuadroBoard:
         return record
 
     def handle_request(self, envelope: dict) -> dict:
-        request_id = envelope.get("request_id", uuid4().hex[:5])
+        request_id = envelope.get("request_id", uuid4().hex[:12])
         try:
             validate_request_envelope(envelope)
             intent = envelope["intent"]
@@ -281,7 +282,7 @@ class QuadroBoard:
 
     def _post_task(self, payload: dict, idempotency_key: str | None) -> dict:
         task = TaskRecord(
-            task_id=payload.get("task_id", uuid4().hex[:5]),
+            task_id=payload.get("task_id", uuid4().hex[:12]),
             task_type=payload["task_type"],
             label=payload["label"],
             priority=int(payload.get("priority", 5)),
@@ -383,11 +384,22 @@ class QuadroBoard:
             raise KeyError(f"Task not found: {payload['task_id']}")
         return {"task": task.to_dict()}
 
+    def _all_terminal_statuses(self) -> list[str]:
+        terminals: set[str] = {s.value for s in STANDARD_TERMINAL_STATUSES}
+        for custom_terminals in self._custom_terminal_statuses.values():
+            terminals.update(custom_terminals)
+        return sorted(terminals)
+
     def _get_full_state(self) -> dict:
         tasks = [task.to_dict() for task in self._backend.list_tasks()]
         agents = [agent.to_dict() for agent in self._backend.list_agents()]
         data = self._backend.list_data()
-        return {"tasks": tasks, "agents": agents, "data": data}
+        return {
+            "tasks": tasks,
+            "agents": agents,
+            "data": data,
+            "_terminal_statuses": self._all_terminal_statuses(),
+        }
 
     def _register_agent(self, payload: dict) -> dict:
         required = {"agent_id", "name", "url", "version", "capabilities", "description"}
