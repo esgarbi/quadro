@@ -22,7 +22,7 @@ described in `README.md` and specified in `QUADRO_SPEC.md`.
 | Track A | Ordering system example + three architectural gaps | ✅ Complete |
 | M4.0 | Telemetry query intents | ✅ Complete |
 | M4.1 | Ombudsman | ✅ Complete |
-| M4.2 | Idempotency deduplication | ⬜ (key persisted; dedup not enforced — v0.1 known gap) |
+| M4.2 | Idempotency deduplication | ✅ Complete |
 | M4.3 | Revision path integration test | ✅ Complete |
 | M5 | Board UI + observability | ✅ Complete |
 
@@ -204,32 +204,18 @@ def _get_agent_activity(self, payload: dict) -> dict:
 
 ---
 
-## M4.2 — Idempotency Deduplication ⬜
+## M4.2 — Idempotency Deduplication ✅
 
-**New file:** `src/quadro/board/idempotency.py`
+### What was built
 
-```python
-class ConflictError(ValueError): ...
-
-class IdempotencyStore:
-    def check(self, key: str, fingerprint: str) -> dict | None: ...
-    def store(self, key: str, fingerprint: str, result: dict) -> None: ...
-```
-
-Fingerprint = `_stable_hash(payload)` from `hydration.py`.
-
-New SQLite table: `idempotency_keys (key PK, fingerprint, result_json, created_at)`.
-
-`QuadroBoard` gains optional `idempotency_store` parameter. When a mutating intent
-arrives with `idempotency_key`, check store first; return cached result on hit;
-raise `ConflictError` on key collision with different payload.
-
-### New test file: `tests/unit/test_idempotency.py`
-
-1. `test_duplicate_key_same_payload_returns_cached`
-2. `test_duplicate_key_different_payload_returns_conflict`
-3. `test_no_key_executes_normally`
-4. `test_board_without_store_behaves_as_before`
+- `board/idempotency.py` — `IdempotencyStore` with SQLite-backed `check()` and
+  `store()`. Uses `_stable_hash(payload)` as fingerprint.
+- `ConflictError` in `errors.py` — raised on key collision with different payload.
+- `QuadroBoard` accepts optional `idempotency_store` parameter. Mutating intents
+  with `idempotency_key` check the store before executing and cache the result after.
+- `idempotency_keys` table created in `SqliteBoardBackend.init()`.
+- `tests/unit/test_idempotency.py` — 4 tests covering cached return, conflict
+  detection, no-key passthrough, and backward compatibility without a store.
 
 ---
 

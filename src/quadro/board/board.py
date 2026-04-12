@@ -4,8 +4,10 @@ from uuid import uuid4
 
 from ..a2a.contracts import A2AResponse, FROZEN_EVENT_TYPES, validate_request_envelope
 from ..a2a.dispatch import A2ATransport
+from ..errors import NotFoundError, TransitionError, ValidationError
 from .backends.base import BoardBackend
 from .id_provider import DefaultTaskIdProvider, TaskIdProvider
+from .idempotency import IdempotencyStore
 from .records import (
     AgentRecord,
     AgentStatus,
@@ -17,7 +19,6 @@ from .records import (
 from .state_machine import (
     STANDARD_TERMINAL_STATUSES,
     Lifecycle,
-    TransitionError,
     compute_custom_terminal_statuses,
     validate_transition,
 )
@@ -166,10 +167,12 @@ class QuadroBoard:
         network: A2ATransport | None = None,
         url: str | None = None,
         id_provider: TaskIdProvider | None = None,
+        idempotency_store: IdempotencyStore | None = None,
     ) -> None:
         self._backend = backend
         self._backend.init()
         self._id_provider: TaskIdProvider = id_provider or DefaultTaskIdProvider()
+        self._idempotency: IdempotencyStore | None = idempotency_store
         self._profile_resolver = profile_resolver or {}
         self._custom_profiles = custom_profiles or {}
 
@@ -241,16 +244,53 @@ class QuadroBoard:
         record.sequence_id = sequence_id
         return record
 
+    _MUTATING_INTENTS = frozenset(
+        {
+            "board.post_task",
+            "board.update_task",
+            "board.post_agent_heartbeat",
+            "worker.post_result",
+        }
+    )
+
+    def _check_idempotency(
+        self, key: str | None, intent: str, payload: dict
+    ) -> dict | None:
+        if not key or not self._idempotency or intent not in self._MUTATING_INTENTS:
+            return None
+        from ..agents.hydration import _stable_hash
+
+        fingerprint = _stable_hash(payload)
+        return self._idempotency.check(key, fingerprint)
+
+    def _store_idempotency(
+        self, key: str | None, intent: str, payload: dict, result: dict
+    ) -> None:
+        if not key or not self._idempotency or intent not in self._MUTATING_INTENTS:
+            return
+        from ..agents.hydration import _stable_hash
+
+        fingerprint = _stable_hash(payload)
+        self._idempotency.store(key, fingerprint, result)
+
     def handle_request(self, envelope: dict) -> dict:
         request_id = envelope.get("request_id", uuid4().hex[:12])
         try:
             validate_request_envelope(envelope)
             intent = envelope["intent"]
             payload = envelope["payload"]
+            idem_key = envelope.get("idempotency_key")
+
+            cached = self._check_idempotency(idem_key, intent, payload)
+            if cached is not None:
+                return A2AResponse(
+                    request_id=request_id, ok=True, result=cached
+                ).to_dict()
+
             if intent == "board.post_task":
-                result = self._post_task(payload, envelope.get("idempotency_key"))
+                result = self._post_task(payload, idem_key)
             elif intent == "board.update_task":
-                result = self._update_task(payload, envelope.get("idempotency_key"))
+                result = self._update_task(payload, idem_key)
             elif intent == "board.get_task":
                 result = self._get_task(payload)
             elif intent == "board.get_full_state":
@@ -258,9 +298,7 @@ class QuadroBoard:
             elif intent == "board.register_agent":
                 result = self._register_agent(payload)
             elif intent == "board.post_agent_heartbeat":
-                result = self._post_agent_heartbeat(
-                    payload, envelope.get("idempotency_key")
-                )
+                result = self._post_agent_heartbeat(payload, idem_key)
             elif intent == "board.stream_events":
                 result = self._stream_events(payload)
             elif intent == "board.list_tasks_by_status":
@@ -276,11 +314,11 @@ class QuadroBoard:
             elif intent == "board.get_agent_activity":
                 result = self._get_agent_activity(payload)
             elif intent == "worker.post_result":
-                result = self._worker_post_result(
-                    payload, envelope.get("idempotency_key")
-                )
+                result = self._worker_post_result(payload, idem_key)
             else:
-                raise ValueError(f"Unsupported board intent: {intent}")
+                raise ValidationError(f"Unsupported board intent: {intent}")
+
+            self._store_idempotency(idem_key, intent, payload, result)
             return A2AResponse(request_id=request_id, ok=True, result=result).to_dict()
         except Exception as exc:  # noqa: BLE001
             return A2AResponse(
@@ -316,7 +354,7 @@ class QuadroBoard:
         task_id = payload["task_id"]
         task = self._backend.get_task(task_id)
         if not task:
-            raise KeyError(f"Task not found: {task_id}")
+            raise NotFoundError(f"Task not found: {task_id}")
         raw_to_status = payload["to_status"]
         try:
             to_status: TaskStatus | str = TaskStatus(raw_to_status)
@@ -393,7 +431,7 @@ class QuadroBoard:
     def _get_task(self, payload: dict) -> dict:
         task = self._backend.get_task(payload["task_id"])
         if not task:
-            raise KeyError(f"Task not found: {payload['task_id']}")
+            raise NotFoundError(f"Task not found: {payload['task_id']}")
         return {"task": task.to_dict()}
 
     def _all_terminal_statuses(self) -> list[str]:
@@ -423,7 +461,7 @@ class QuadroBoard:
         required = {"agent_id", "name", "url", "version", "capabilities", "description"}
         missing = required - payload.keys()
         if missing:
-            raise ValueError(f"Missing AgentCard fields: {sorted(missing)}")
+            raise ValidationError(f"Missing AgentCard fields: {sorted(missing)}")
         raw_status = payload.get("status", AgentStatus.IDLE.value)
         agent = AgentRecord(
             agent_id=payload["agent_id"],
@@ -443,7 +481,7 @@ class QuadroBoard:
     def _post_agent_heartbeat(self, payload: dict, idempotency_key: str | None) -> dict:
         agent = self._backend.get_agent(payload["agent_id"])
         if not agent:
-            raise KeyError(f"Agent not found: {payload['agent_id']}")
+            raise NotFoundError(f"Agent not found: {payload['agent_id']}")
         agent.last_seen_at = utc_now()
         self._backend.upsert_agent(agent)
 
@@ -453,7 +491,7 @@ class QuadroBoard:
         if task_id:
             task = self._backend.get_task(task_id)
             if not task:
-                raise KeyError(f"Task not found: {task_id}")
+                raise NotFoundError(f"Task not found: {task_id}")
             task.heartbeat_at = utc_now()
             task.updated_at = utc_now()
             self._backend.update_task(task)
@@ -503,7 +541,7 @@ class QuadroBoard:
     def _worker_post_result(self, payload: dict, idempotency_key: str | None) -> dict:
         task = self._backend.get_task(payload["task_id"])
         if not task:
-            raise KeyError(f"Task not found: {payload['task_id']}")
+            raise NotFoundError(f"Task not found: {payload['task_id']}")
         if task.status != TaskStatus.IN_PROGRESS:
             raise TransitionError(
                 f"Task {task.task_id} must be IN_PROGRESS to post result"
