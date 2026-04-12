@@ -5,6 +5,7 @@ from uuid import uuid4
 from ..a2a.contracts import A2AResponse, FROZEN_EVENT_TYPES, validate_request_envelope
 from ..a2a.dispatch import LocalA2ANetwork
 from .backends.base import BoardBackend
+from .id_provider import DefaultTaskIdProvider, TaskIdProvider
 from .records import (
     AgentRecord,
     AgentStatus,
@@ -164,9 +165,11 @@ class QuadroBoard:
         *,
         network: LocalA2ANetwork | None = None,
         url: str | None = None,
+        id_provider: TaskIdProvider | None = None,
     ) -> None:
         self._backend = backend
         self._backend.init()
+        self._id_provider: TaskIdProvider = id_provider or DefaultTaskIdProvider()
         self._profile_resolver = profile_resolver or {}
         self._custom_profiles = custom_profiles or {}
 
@@ -281,8 +284,13 @@ class QuadroBoard:
             ).to_dict()
 
     def _post_task(self, payload: dict, idempotency_key: str | None) -> dict:
+        if "task_id" in payload:
+            task_id = payload["task_id"]
+        else:
+            existing = {t.task_id for t in self._backend.list_tasks()}
+            task_id = self._id_provider.generate(existing)
         task = TaskRecord(
-            task_id=payload.get("task_id", uuid4().hex[:12]),
+            task_id=task_id,
             task_type=payload["task_type"],
             label=payload["label"],
             priority=int(payload.get("priority", 5)),
