@@ -1,5 +1,7 @@
 """Quadro public API."""
 
+__version__ = "0.1.0"
+
 from .a2a.dispatch import LocalA2ANetwork
 from .agents.chief import ChiefAgent
 from .agents.pool import WorkerPool
@@ -10,11 +12,13 @@ from .board.id_provider import DefaultTaskIdProvider
 from .board.lifecycle_loader import load_lifecycle
 from .board.state_machine import LifecycleBuilder, lifecycle
 from .dispatch import (
+    DRAIN_FLAG_KEY,
     acknowledge_task,
     dispatch_batch,
     find_idle_worker,
     fire_worker,
     get_acknowledged,
+    is_draining,
 )
 from .errors import (
     ConflictError,
@@ -40,6 +44,7 @@ __all__ = [
     "BuiltPipeline",
     "ChiefAgent",
     "ConflictError",
+    "DRAIN_FLAG_KEY",
     "DefaultTaskIdProvider",
     "LifecycleBuilder",
     "LocalA2ANetwork",
@@ -61,6 +66,7 @@ __all__ = [
     "fire_worker",
     "generate_tool_descriptors",
     "get_acknowledged",
+    "is_draining",
     "lifecycle",
     "load_lifecycle",
     "serve_board",

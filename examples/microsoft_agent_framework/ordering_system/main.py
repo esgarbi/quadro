@@ -47,6 +47,7 @@ from quadro import (
     WorkerPool,
 )
 from quadro.board.backends.sqlite import SqliteBoardBackend
+from quadro.sponsor import AllOf, GoalSponsor, TickBudgetSponsor
 
 from agents import (
     build_chief_policy,
@@ -242,12 +243,11 @@ def main(
 
     final_state = (
         RunLoop(board, chief)
-        .done_when(_is_done)
+        .sponsor(AllOf(GoalSponsor(_is_done), TickBudgetSponsor(max_cycles)))
         .on_cycle(_log_cycle)
         .ombudsman(wd)
         .poll_every(3.0)
         .ombudsman_every(30.0)
-        .max_cycles(max_cycles)
         .run()
     )
 

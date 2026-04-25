@@ -223,8 +223,11 @@ def generate_tool_descriptors(
 class BuiltPipeline:
     """The runnable result of ``Pipeline.build()``.
 
-    Holds the assembled Quadro components and exposes a single
-    ``.run()`` method that drives the ``RunLoop`` to completion.
+    Holds the assembled Quadro components (board, worker pool, chief,
+    ombudsman). Run the pipeline through a :class:`~quadro.QuadroRuntime`
+    — the previous ``BuiltPipeline.run(done_when=..., max_cycles=...)``
+    shortcut was removed when the Sponsor/Lease layer replaced those
+    knobs. See ``docs/design/sponsor.md``.
     """
 
     def __init__(
@@ -238,30 +241,6 @@ class BuiltPipeline:
         self.pool = pool
         self.chief = chief
         self.ombudsman = ombudsman
-
-    def run(
-        self,
-        *,
-        done_when: Callable[[dict], bool],
-        on_cycle: Callable[[dict, int], None] | None = None,
-        poll_every: float = 3.0,
-        ombudsman_every: float = 30.0,
-        max_cycles: int = 1000,
-    ) -> dict:
-        """Run the pipeline to completion via Quadro's ``RunLoop``."""
-        from .runner import RunLoop
-
-        builder = (
-            RunLoop(self.board, self.chief)
-            .done_when(done_when)
-            .ombudsman(self.ombudsman)
-            .poll_every(poll_every)
-            .ombudsman_every(ombudsman_every)
-            .max_cycles(max_cycles)
-        )
-        if on_cycle:
-            builder = builder.on_cycle(on_cycle)
-        return builder.run()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

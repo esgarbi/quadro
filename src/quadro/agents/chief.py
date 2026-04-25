@@ -39,6 +39,8 @@ class ChiefAgent:
         self._lock = threading.Lock()
         self._decision_running: bool = False
         self._pending_wake: bool = False
+        self._wake_listeners: list = []
+        self._draining: bool = False
 
         self._telemetry_lock = threading.Lock()
         self._telem: dict = {
@@ -50,6 +52,7 @@ class ChiefAgent:
             "cycles_run": 0,
             "consecutive_noops": 0,
             "recent_durations_ms": [],
+            "draining": False,
         }
 
         if chief_url:
@@ -72,6 +75,16 @@ class ChiefAgent:
 
         trigger: "worker" | "ombudsman" | "seed" — why this wake was requested.
         """
+        for listener in list(self._wake_listeners):
+            try:
+                listener(trigger)
+            except Exception:  # noqa: BLE001
+                import logging as _logging
+
+                _logging.getLogger(__name__).warning(
+                    "Chief wake listener raised; ignoring.", exc_info=True
+                )
+
         with self._lock:
             if self._decision_running:
                 self._pending_wake = True
@@ -97,6 +110,53 @@ class ChiefAgent:
     def nudge(self, trigger: str = "seed") -> int:
         """Delegates to wake(). trigger defaults to 'seed' for explicit nudges."""
         return self.wake(trigger=trigger)
+
+    # ── Wake listeners ─────────────────────────────────────────────────────────
+
+    def add_wake_listener(self, listener) -> None:
+        """Register a callable ``(trigger: str) -> None`` invoked on every wake.
+
+        The primary consumer is the Sponsor layer's
+        :class:`WorkerInvocationMeter`, which counts ``trigger='worker'``
+        events. Listeners run synchronously at the top of :meth:`wake`;
+        exceptions are logged and swallowed.
+        """
+        self._wake_listeners.append(listener)
+
+    def remove_wake_listener(self, listener) -> None:
+        try:
+            self._wake_listeners.remove(listener)
+        except ValueError:
+            pass
+
+    # ── Drain cooperation ──────────────────────────────────────────────────────
+
+    def set_draining(self, draining: bool) -> None:
+        """Enable/disable drain mode.
+
+        In drain mode, :meth:`_apply_default_routing` refuses to move tasks
+        out of ``UNASSIGNED`` (no new work is picked up) while continuing to
+        handle completions, reviews, and revisions. Custom policies that call
+        :func:`quadro.dispatch.dispatch_batch` benefit transparently because
+        that helper reads this flag.
+        """
+        self._draining = bool(draining)
+        self._write_telemetry_draining(bool(draining))
+
+    def is_draining(self) -> bool:
+        return self._draining
+
+    def _write_telemetry_draining(self, value: bool) -> None:
+        with self._telemetry_lock:
+            self._telem["draining"] = value
+            snapshot = dict(self._telem)
+        try:
+            self._request_board(
+                "board.put_data",
+                {"key": "_chief_telemetry", "value": snapshot},
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     @property
     def cycles_run(self) -> int:
@@ -160,6 +220,10 @@ class ChiefAgent:
             status = task["status"]
 
             if status == "UNASSIGNED":
+                if self._draining:
+                    # Drain mode: no new work is picked up. In-flight tasks
+                    # (anything already past UNASSIGNED) continue unaffected.
+                    continue
                 capability = task["task_type"]
                 worker = self._find_idle_agent(agents, capability)
                 if not worker:

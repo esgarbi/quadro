@@ -50,6 +50,13 @@ def build_runtime(
     max_cycles: int = DEFAULT_MAX_CYCLES,
     lifecycle: object | None = None,
 ) -> QuadroRuntime:
+    """Build a runtime pre-wired with the article profile and goal data.
+
+    ``max_cycles`` is retained on the signature for backward-compatible call
+    sites; callers should wrap their Sponsor with ``TickBudgetSponsor(max_cycles)``
+    (see :func:`build_default_sponsor`) — ``QuadroRuntime`` no longer consumes
+    ``max_cycles`` directly.
+    """
     active_lifecycle = lifecycle or ARTICLE_LIFECYCLE
     runtime = QuadroRuntime(SqliteBoardBackend(str(DB_PATH))).with_profiles(
         profile_resolver={"article": "article"},
@@ -62,7 +69,23 @@ def build_runtime(
             "topic": TOPIC,
         },
     )
-    return runtime.max_cycles(max_cycles)
+    return runtime
+
+
+def build_default_sponsor(
+    *, target_articles: int, max_cycles: int = DEFAULT_MAX_CYCLES
+):
+    """Canonical Sponsor for the newsroom examples.
+
+    Composes a :class:`GoalSponsor` (published-count target) with a
+    :class:`TickBudgetSponsor` as a safety cap.
+    """
+    from quadro.sponsor import AllOf, GoalSponsor, TickBudgetSponsor
+
+    return AllOf(
+        GoalSponsor(make_done_when(target_articles)),
+        TickBudgetSponsor(max_cycles),
+    )
 
 
 def start_article_producer(

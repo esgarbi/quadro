@@ -390,7 +390,8 @@ class MafPipeline(Pipeline):
             .build()
         )
 
-        final_state = pipeline.run(done_when=lambda s: ...)
+        from quadro.sponsor import GoalSponsor
+        final_state = runtime.sponsor(GoalSponsor(lambda s: ...)).run(pipeline)
     """
 
     def __init__(self, board: Any) -> None:

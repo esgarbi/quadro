@@ -15,6 +15,7 @@ from quadro import (
     WorkerAgent,
 )
 from quadro.board.backends.sqlite import SqliteBoardBackend
+from quadro.sponsor import AllOf, GoalSponsor, TickBudgetSponsor
 
 
 def _make_chain_policy(bc: BoardClient) -> Callable:
@@ -99,10 +100,9 @@ def main() -> None:
 
     final_state = (
         RunLoop(board, chief)
-        .done_when(_is_done)
+        .sponsor(AllOf(GoalSponsor(_is_done), TickBudgetSponsor(25)))
         .poll_every(0.0)
         .ombudsman_every(0.0)
-        .max_cycles(25)
         .run()
     )
 

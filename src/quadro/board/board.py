@@ -181,6 +181,8 @@ class QuadroBoard:
             for name, transitions in self._custom_profiles.items()
         }
 
+        self._event_listeners: list = []
+
         self._url: str = url or self._DEFAULT_URL
         self._network: A2ATransport | None = network
         if network is not None:
@@ -193,6 +195,27 @@ class QuadroBoard:
                     list(profile.col_order),
                 )
                 break
+
+    # ── Event observer hook ───────────────────────────────────────────────────
+
+    def add_event_listener(self, listener) -> None:
+        """Register a callable that receives every :class:`EventRecord` emitted.
+
+        Listeners are invoked synchronously inside ``_append_event`` after the
+        event has been persisted. Exceptions from a listener are logged and
+        swallowed so a faulty subscriber cannot break board operation.
+
+        Typical subscribers: the Sponsor-layer :class:`BoardEventMeter`, a UI
+        push channel, an external audit log.
+        """
+        self._event_listeners.append(listener)
+
+    def remove_event_listener(self, listener) -> None:
+        """Remove a previously-registered listener; no-op if not present."""
+        try:
+            self._event_listeners.remove(listener)
+        except ValueError:
+            pass
 
     def client(self) -> BoardClient:
         """
@@ -242,6 +265,16 @@ class QuadroBoard:
         )
         sequence_id = self._backend.append_event(record)
         record.sequence_id = sequence_id
+        for listener in list(self._event_listeners):
+            try:
+                listener(record)
+            except Exception:  # noqa: BLE001
+                import logging as _logging
+
+                _logging.getLogger(__name__).warning(
+                    "Board event listener raised; ignoring.",
+                    exc_info=True,
+                )
         return record
 
     _MUTATING_INTENTS = frozenset(

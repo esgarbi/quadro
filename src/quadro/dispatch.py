@@ -16,6 +16,24 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+DRAIN_FLAG_KEY = "_runtime_draining"
+
+
+def is_draining(board_fn: Callable[[str, dict], dict]) -> bool:
+    """Return True when the runtime has signalled drain mode on the board.
+
+    Drain is published by :class:`quadro.runner.RunLoop` when the active
+    Sponsor returns :class:`quadro.sponsor.Drain`. Any dispatch helper that
+    consults this flag cooperates with drain without the caller needing to
+    thread state explicitly.
+    """
+    try:
+        result = board_fn("board.get_data", {"key": DRAIN_FLAG_KEY})
+        return bool(result.get("value"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 # ── Worker dispatch ───────────────────────────────────────────────────────────
 
 
@@ -79,6 +97,12 @@ def dispatch_batch(
         status_filter = {status_filter}
     state = board_fn("board.get_full_state", {})
     eligible = [t for t in state.get("tasks", []) if t["status"] in status_filter]
+    draining = is_draining(board_fn)
+    if draining:
+        # In drain mode the runtime refuses to start *new* work. A task is
+        # "new" when it would be leaving UNASSIGNED. In-flight transitions
+        # (e.g. research_ready -> writing) continue normally.
+        eligible = [t for t in eligible if t["status"] != "UNASSIGNED"]
     dispatched: list[str] = []
     skipped: list[str] = []
     for t in eligible:

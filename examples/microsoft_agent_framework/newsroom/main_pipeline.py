@@ -37,10 +37,10 @@ from runtime import (
     GOAL_KEY,
     HERE,
     WORKER_COUNT,
+    build_default_sponsor,
     build_runtime,
     load_lifecycle_override,
     make_cycle_logger,
-    make_done_when,
     mode_label,
     print_final_summary,
     start_article_producer,
@@ -120,7 +120,11 @@ def main(
     logger.info("Newsroom (pipeline) started — target=%d  %s", target_articles, mode)
 
     final_state = (
-        runtime.done_when(make_done_when(target_articles))
+        runtime.sponsor(
+            build_default_sponsor(
+                target_articles=target_articles, max_cycles=max_cycles
+            )
+        )
         .on_cycle(
             make_cycle_logger(
                 logger,

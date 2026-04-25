@@ -327,6 +327,8 @@ class _Handler(BaseHTTPRequestHandler):
             )
 
             chief_telem = state.get("data", {}).get("_chief_telemetry")
+            sponsor_status = state.get("data", {}).get("_sponsor_status")
+            sponsor_log = state.get("data", {}).get("_sponsor_log")
 
             state["_meta"] = {
                 "db_label": self.db_label,
@@ -334,6 +336,12 @@ class _Handler(BaseHTTPRequestHandler):
                 "server_time": datetime.now(timezone.utc).isoformat(),
                 "col_order": col_order,
                 "chief": chief_telem,
+                "sponsor": sponsor_status,
+                "sponsor_log": (
+                    sponsor_log[-20:]
+                    if isinstance(sponsor_log, list)
+                    else None
+                ),
             }
             self._json(200, state)
         except Exception as exc:
@@ -753,6 +761,10 @@ button.icon-btn:hover { border-color:var(--accent); color:var(--accent); }
       <div class="section-title">Live Events</div>
       <div id="events-list"></div>
     </div>
+    <div id="sponsor-section" style="display:none">
+      <div class="section-title">Sponsor</div>
+      <div id="sponsor-summary"></div>
+    </div>
     <div id="data-section" style="display:none">
       <div class="section-title">Board Data</div>
       <div id="data-list"></div>
@@ -1165,6 +1177,61 @@ function renderData(data) {
   }
 }
 
+function renderSponsor(meta) {
+  const section = document.getElementById('sponsor-section');
+  const summary = document.getElementById('sponsor-summary');
+  const status = meta && meta.sponsor;
+  if (!status) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  summary.innerHTML = '';
+
+  const line = (key, value) => {
+    const row = el('div', 'data-row');
+    row.appendChild(el('span', 'data-key', key));
+    row.appendChild(el('span', 'data-val', value));
+    return row;
+  };
+
+  const sponsorId = status.sponsor_id || '—';
+  summary.appendChild(line('sponsor', sponsorId));
+  summary.appendChild(line('draining', status.draining ? 'yes' : 'no'));
+
+  const lease = status.active_lease;
+  if (lease) {
+    if (lease.ticks != null) {
+      const used = (status.meters && status.meters.ticks) || 0;
+      summary.appendChild(line('ticks', `${used} / ${lease.ticks}`));
+    }
+    if (lease.deadline) {
+      const rem = Math.max(
+        0,
+        Math.floor((new Date(lease.deadline) - Date.now()) / 1000)
+      );
+      summary.appendChild(line('deadline', `${rem}s remaining`));
+    }
+    if (lease.llm_tokens != null) {
+      const used = (status.meters && status.meters.llm_tokens) || 0;
+      summary.appendChild(line('llm_tokens', `${used} / ${lease.llm_tokens}`));
+    }
+    if (lease.worker_invocations != null) {
+      const used = (status.meters && status.meters.worker_invocations) || 0;
+      summary.appendChild(line('workers', `${used} / ${lease.worker_invocations}`));
+    }
+    if (lease.board_events != null) {
+      const used = (status.meters && status.meters.board_events) || 0;
+      summary.appendChild(line('events', `${used} / ${lease.board_events}`));
+    }
+    if (lease.reason) summary.appendChild(line('reason', lease.reason));
+  }
+  if (status.drain_deadline && status.draining) {
+    const rem = Math.max(
+      0,
+      Math.floor((new Date(status.drain_deadline) - Date.now()) / 1000)
+    );
+    summary.appendChild(line('drain_until', `${rem}s`));
+  }
+}
+
 function updateGoalBadge(tasks, data) {
   const badge = document.getElementById('goal-badge');
   const goal = data && data.newsroom_goal;
@@ -1257,6 +1324,7 @@ async function fetchState() {
     if (meta) {
       document.getElementById('last-updated').textContent = fmtTime(meta.server_time);
       renderChief(meta.chief || null);
+      renderSponsor(meta);
     }
     setLiveDot(true);
   } catch(e) { console.error('State fetch failed:', e); setLiveDot(false); }

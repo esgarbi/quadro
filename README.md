@@ -24,6 +24,7 @@
 - [The Board](#the-board)
 - [The Chief](#the-chief)
 - [Governance](#governance)
+- [Lifetime — the Sponsor](#lifetime--the-sponsor)
 - [How this relates to existing work](#how-this-relates-to-existing-work)
 - [Reference implementation](#reference-implementation)
 - [Pattern reference](#pattern-reference)
@@ -109,7 +110,7 @@ Run the deterministic examples (no API key needed):
 ```bash
 python examples/newsroom_cooperation.py
 python examples/ordering_system.py
-pytest  # 120 tests, no external dependencies
+pytest  # 250+ tests, no external dependencies
 ```
 
 Run the LLM-backed examples (requires `OPENAI_API_KEY`):
@@ -127,20 +128,16 @@ python -m quadro.ui newsroom.db --open
 ```
 
 ```python
-from quadro import (
-    BoardClient, ChiefAgent, LocalA2ANetwork,
-    QuadroBoard, RunLoop, WorkerAgent,
-)
-from quadro.board.backends.sqlite import SqliteBoardBackend
+from types import SimpleNamespace
 
-network = LocalA2ANetwork()
-board   = QuadroBoard(
-    SqliteBoardBackend(),
+from quadro import ChiefAgent, QuadroRuntime, WorkerAgent
+from quadro.board.backends.sqlite import SqliteBoardBackend
+from quadro.sponsor import GoalSponsor
+
+runtime = QuadroRuntime(SqliteBoardBackend()).with_profiles(
     profile_resolver={"mywork": "fast"},
-    network=network,
-    url="a2a://board",
 )
-bc = board.client()
+bc = runtime.client
 
 def do_work(context, board_fn):
     task = context["payload"]["task"]
@@ -163,9 +160,12 @@ worker.register()
 chief = ChiefAgent.builder(bc).at("a2a://chief").build()
 bc.post_task("mywork", "do something useful")
 
-RunLoop(board, chief).done_when(
-    lambda s: all(t["status"] == "COMPLETE" for t in s["tasks"])
-).run()
+# Quadro's lifetime is governed by a Sponsor. GoalSponsor is the drop-in
+# "run until this predicate is true" shape; see the Lifetime section below
+# for richer authorities (deadline, budget, external systems).
+runtime.sponsor(
+    GoalSponsor(lambda s: all(t["status"] == "COMPLETE" for t in s["tasks"]))
+).run(SimpleNamespace(chief=chief))
 ```
 
 The `fast` profile allows `IN_PROGRESS → COMPLETE` directly. The default
@@ -276,6 +276,29 @@ Workers reading and writing tasks, the Ombudsman monitoring heartbeats:
 
 ---
 
+## Lifetime — the Sponsor
+
+The Reactive Governed Blackboard pattern defines how work is coordinated, not
+how long the runtime should keep running. That question — *should we still be
+working on this?* — is distinct from *has the work completed?* and is usually
+answered by something outside the runtime itself: a mission goal, a scheduled
+window, a CRM ticket being open, a budget still positive.
+
+Quadro exposes that seam as a **Sponsor**. A Sponsor is consulted by the
+`RunLoop` at startup and on lease expiry, and returns one of `Continue`,
+`Drain`, or `Stop`. The built-in `GoalSponsor(predicate)` covers the common
+case ("run until my goal is met"); `DeadlineSponsor`, `TickBudgetSponsor`,
+`LlmTokenBudgetSponsor`, and `HttpSponsor` let you add wall-clock, cost, or
+external-authority caps by composition with `AllOf` / `AnyOf` / `Priority`.
+
+This is a lifetime model, not a pattern primitive. The Board, Chief, and
+governed lifecycle are unchanged whether your Sponsor is a one-line predicate
+or an HTTP call to a ticketing system. See
+[`docs/design/sponsor.md`](docs/design/sponsor.md) for the full design and
+[`examples/crm_sponsor/`](examples/crm_sponsor/) for a worked CRM-gated run.
+
+---
+
 ## How this relates to existing work
 
 The ingredients are not novel. Blackboard architecture dates to Newell and Simon in
@@ -319,7 +342,7 @@ hardening in progress.
 - `ChiefAgent` — reactive coordinator, pending-wake serialisation, telemetry
 - `WorkerAgent` — stateless worker, automatic `HUMAN_REVIEW` transition on crash, heartbeat
 - `WorkerPool` — fluent builder for N-worker-per-capability pools with Ombudsman
-- `RunLoop` — done predicate, per-cycle callback, Ombudsman integration
+- `RunLoop` — sponsor-governed poll loop, per-cycle callback, Ombudsman integration
 - `Ombudsman` — stale heartbeat detection for standard and custom profiles
 - `LifecycleBuilder` — fluent builder for custom task lifecycle profiles
 - `lifecycle()` — function-form lifecycle declaration from a list of transitions

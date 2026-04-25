@@ -1,36 +1,60 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
+## Unreleased
 
-## [0.1.0] — 2026-04-05
+### Breaking changes
 
-Initial public release — reference implementation of the Quadro pattern language.
+- **Lifetime model replaced by Sponsor/Lease.** `QuadroRuntime.done_when`,
+  `QuadroRuntime.max_cycles`, `RunLoop.done_when`, and
+  `RunLoop.max_cycles` are removed. Runtimes must now install a
+  :class:`~quadro.sponsor.Sponsor` via `.sponsor(sponsor)`.
+  `GoalSponsor(predicate)` is the canonical drop-in replacement for
+  `done_when(predicate)`; `TickBudgetSponsor(n)` replaces `max_cycles(n)`.
+  See [docs/guides/sponsor-migration.md](docs/guides/sponsor-migration.md).
+- **`BuiltPipeline.run(done_when=..., max_cycles=...)` removed.** Route
+  built pipelines through `QuadroRuntime.run(pipeline)` instead. Examples
+  under `examples/microsoft_agent_framework/*/main_pipeline.py` show the
+  new shape.
 
-### What is included
+### Added
 
-**Core patterns (fully implemented)**
-- `QuadroBoard` — durable board with SQLite backend, validated lifecycle
-  transitions, and an immutable append-only event log
-- `ChiefAgent` — reactive coordinator with pending-wake serialization, chief
-  telemetry, and a fluent builder API
-- `WorkerAgent` — stateless worker with hydration, heartbeat posting, reviewer
-  mode, and a fluent builder API
-- `WorkerPool` — fluent builder for pools of workers grouped by capability
-- `Ombudsman` — stale heartbeat detection for standard and custom lifecycle profiles
-- `LocalA2ANetwork` — in-process A2A transport for testing and single-process use
-- `RunLoop` — thin wrapper for coordinated startup and teardown
-- `serve_board()` / Board UI — zero-dependency live Kanban at `localhost:8080`
+- `quadro.sponsor` — new module exposing:
+  - :class:`Sponsor` protocol, :class:`Lease`, :class:`LeaseDecision`
+    union (`Continue` / `Drain` / `Stop`), :class:`SponsorContext`,
+    :class:`MeterReadings`.
+  - Leaf sponsors: :class:`GoalSponsor`, :class:`DeadlineSponsor`,
+    :class:`TickBudgetSponsor`, :class:`WorkerBudgetSponsor`,
+    :class:`LlmTokenBudgetSponsor`, :class:`BoardEventBudgetSponsor`,
+    :class:`CallableSponsor`, :class:`QueueDepthSponsor`.
+  - External sponsors: :class:`HttpSponsor`, :class:`CallbackSponsor`.
+  - Composers: :class:`AllOf`, :class:`AnyOf`, :class:`Priority`.
+  - Test fixtures: :class:`AlwaysOnSponsor`, :class:`AlwaysStopSponsor`,
+    :class:`ScriptedSponsor`.
+- Drain semantics are first-class. `Drain(deadline, reason)` suppresses
+  new task assignment while letting in-flight work complete. The runtime
+  publishes a drain flag at `_runtime_draining` and a status snapshot at
+  `_sponsor_status`.
+- Observability: `_sponsor_log` (bounded list of recent decisions) and
+  `_sponsor_status` (active lease + draining flag) are persisted to the
+  board and surfaced in the UI sidebar as a new **Sponsor** panel.
+- `QuadroBoard.add_event_listener` / `remove_event_listener` — subscribe
+  to every board event (consumed by `BoardEventMeter`).
+- `ChiefAgent.add_wake_listener` / `remove_wake_listener` — subscribe to
+  every chief wake (consumed by `WorkerInvocationMeter`).
+- `ChiefAgent.set_draining(bool)` and `is_draining()` — drain flag with
+  board-published telemetry.
+- `quadro.dispatch.is_draining(board_fn)` and `DRAIN_FLAG_KEY` —
+  dispatch helpers consult the flag so custom chief policies cooperate
+  without per-call-site changes.
+- `QuadroRuntime.drain_max_duration(td)` — override the 5-minute default
+  fallback deadline used when a Sponsor returns `Drain(deadline=None)`.
+- New example `examples/crm_sponsor/` — mocked CRM ticket drives a
+  runtime's lifetime, showing the continuity story end-to-end.
 
-**Lifecycle profiles**
-- `review_required` — UNASSIGNED → IN_PROGRESS → PENDING_REVIEW → APPROVED → COMPLETE
-- `fast` — UNASSIGNED → IN_PROGRESS → COMPLETE
-- Custom profiles via `build_custom_profile()`
+### Documentation
 
-**Examples**
-- `examples/newsroom_cooperation.py` — multi-agent newsroom with ideation,
-  research, writing, and review phases
-- `examples/ordering_system.py` — order lifecycle with board data as inventory
-
-**Known gaps (planned for future releases)**
-- Idempotency deduplication (key persisted; enforcement not yet active)
-- HTTP transport (LocalA2ANetwork only in this release)
+- `docs/design/sponsor.md` — design doc with locked API and open-question
+  answers.
+- `docs/guides/sponsor-authoring.md` — how to write a Sponsor.
+- `docs/guides/sponsor-decision-matrix.md` — "I want X, use Y" lookup.
+- `docs/guides/sponsor-migration.md` — step-by-step migration guide.

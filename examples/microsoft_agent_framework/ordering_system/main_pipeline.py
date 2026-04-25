@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from quadro import LifecycleBuilder, QuadroRuntime
 from quadro.board.backends import SqliteBoardBackend
 from quadro.integrations.maf import MafPipeline
+from quadro.sponsor import AllOf, DeadlineSponsor, GoalSponsor, TickBudgetSponsor
 
 from data import INITIAL_WAREHOUSE, PRODUCT_CATALOG
 from producer import ChoreographyStep, OrderProducer
@@ -191,11 +192,15 @@ def main(
     )
 
     final_state = (
-        runtime.done_when(_is_done)
+        runtime.sponsor(
+            AllOf(
+                GoalSponsor(_is_done),
+                TickBudgetSponsor(max_cycles),
+            )
+        )
         .on_cycle(_log_cycle)
         .poll_every(3.0)
         .ombudsman_every(30.0)
-        .max_cycles(max_cycles)
         .run(pipeline)
     )
 

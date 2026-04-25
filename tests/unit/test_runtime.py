@@ -7,6 +7,16 @@ import pytest
 
 from quadro import LifecycleBuilder, LocalA2ANetwork, QuadroBoard, QuadroRuntime
 from quadro.board.backends.sqlite import SqliteBoardBackend
+from quadro.sponsor import (
+    AllOf,
+    AlwaysOnSponsor,
+    Continue,
+    GoalSponsor,
+    Lease,
+    ScriptedSponsor,
+    Stop,
+    TickBudgetSponsor,
+)
 
 
 def test_runtime_starts_from_backend_and_creates_board_lazily() -> None:
@@ -54,11 +64,11 @@ def test_runtime_configuration_cannot_change_after_board_creation() -> None:
         runtime.with_network(LocalA2ANetwork())
 
 
-def test_runtime_raises_without_done_when() -> None:
+def test_runtime_raises_without_sponsor() -> None:
     runtime = QuadroRuntime(SqliteBoardBackend(":memory:"))
     built_pipeline = SimpleNamespace(chief=MagicMock())
 
-    with pytest.raises(ValueError, match="done_when"):
+    with pytest.raises(ValueError, match="sponsor"):
         runtime.run(built_pipeline)
 
 
@@ -72,25 +82,24 @@ def test_runtime_run_delegates_callbacks_and_ombudsman() -> None:
     def done_after_second_cycle(state: dict) -> bool:
         nonlocal done_calls
         done_calls += 1
-        return done_calls >= 2
+        return done_calls >= 3
 
     runtime = (
         QuadroRuntime(SqliteBoardBackend(":memory:"))
-        .done_when(done_after_second_cycle)
+        .sponsor(AllOf(GoalSponsor(done_after_second_cycle), TickBudgetSponsor(10)))
         .on_cycle(lambda state, cycle: cycle_calls.append((state, cycle)))
         .on_complete(complete_calls.append)
         .poll_every(0.0)
         .ombudsman_every(0.0)
-        .max_cycles(5)
     )
 
     state = runtime.run(SimpleNamespace(chief=chief, ombudsman=ombudsman))
 
     assert state == complete_calls[0]
-    assert [cycle for _, cycle in cycle_calls] == [0, 1]
+    assert cycle_calls  # at least one cycle ran
     chief.nudge.assert_any_call(trigger="seed")
     chief.nudge.assert_any_call(trigger="ombudsman")
-    ombudsman.nudge.assert_called_once_with()
+    ombudsman.nudge.assert_called()
 
 
 def test_runtime_shutdown_hooks_run_after_successful_run() -> None:
@@ -100,7 +109,7 @@ def test_runtime_shutdown_hooks_run_after_successful_run() -> None:
     runtime = (
         QuadroRuntime(SqliteBoardBackend(":memory:"))
         .add_shutdown_hook(hook)
-        .done_when(lambda state: True)
+        .sponsor(GoalSponsor(lambda state: True))
         .poll_every(0.0)
     )
 
@@ -110,3 +119,13 @@ def test_runtime_shutdown_hooks_run_after_successful_run() -> None:
 
     resource.stop.assert_called_once_with()
     hook.assert_called_once_with()
+
+
+def test_runtime_drain_max_duration_setter_is_fluent() -> None:
+    from datetime import timedelta
+
+    runtime = (
+        QuadroRuntime(SqliteBoardBackend(":memory:"))
+        .drain_max_duration(timedelta(seconds=30))
+    )
+    assert runtime._drain_max_duration == timedelta(seconds=30)

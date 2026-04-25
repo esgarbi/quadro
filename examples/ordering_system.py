@@ -42,6 +42,7 @@ from quadro import (
 from quadro.a2a.contracts import A2ARequest
 from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.board.state_machine import LifecycleBuilder
+from quadro.sponsor import AllOf, GoalSponsor, TickBudgetSponsor
 
 # ─── Order lifecycle profile ──────────────────────────────────────────────────
 
@@ -292,11 +293,10 @@ def main() -> None:
 
     final_state = (
         RunLoop(board, chief)
-        .done_when(_is_done)
+        .sponsor(AllOf(GoalSponsor(_is_done), TickBudgetSponsor(args.cycles)))
         .on_cycle(_log_cycle)
         .poll_every(0.0)
         .ombudsman_every(0.0)
-        .max_cycles(args.cycles)
         .run()
     )
     print("\n── Final task states ──────────────────────────────────────────")
