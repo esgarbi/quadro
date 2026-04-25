@@ -27,8 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from quadro import LifecycleBuilder, LocalA2ANetwork, QuadroBoard
-from quadro.board.backends.sqlite import SqliteBoardBackend
+from quadro import LifecycleBuilder, QuadroRuntime
+from quadro.board.backends import SqliteBoardBackend
 from quadro.integrations.maf import MafPipeline
 
 from data import INITIAL_WAREHOUSE, PRODUCT_CATALOG
@@ -94,25 +94,22 @@ def main(
 ) -> None:
     db_path = str(HERE / "orders.db")
 
-    network = LocalA2ANetwork()
-    board = QuadroBoard(
-        SqliteBoardBackend(db_path),
+    runtime = QuadroRuntime(SqliteBoardBackend(db_path)).with_profiles(
         profile_resolver={"order": "order"},
         custom_profiles={"order": ORDER_LIFECYCLE},
-        network=network,
     )
-    bc = board.client()
+    bc = runtime.client
 
-    bc.put_data(
+    runtime.put_data(
         "order_goal",
         {"target_shipped": target_shipped, "domain": "electronics e-commerce"},
     )
-    bc.put_data("product_catalog", PRODUCT_CATALOG)
-    bc.put_data("warehouse", dict(INITIAL_WAREHOUSE))
+    runtime.put_data("product_catalog", PRODUCT_CATALOG)
+    runtime.put_data("warehouse", dict(INITIAL_WAREHOUSE))
 
     # ── Pipeline — all wiring in one fluent chain ─────────────────────────────
     pipeline = (
-        MafPipeline(board)
+        MafPipeline(runtime.board)
         .llm(api_key_env="OPENAI_API_KEY", model_env="OPENAI_MODEL_ID")
         .workers(4)
         .capacity(2)
@@ -161,15 +158,13 @@ def main(
         producer = OrderProducer(bc, choreography=choreo)
     else:
         producer = OrderProducer(bc, profile=profile)
+    runtime.add_shutdown_hook(producer.stop)
 
-    _TERMINAL = frozenset(
-        {"shipped", "validation_failed", "HUMAN_REVIEW", "abandoned"}
-    )
+    _TERMINAL = frozenset({"shipped", "validation_failed", "HUMAN_REVIEW", "abandoned"})
 
     def _is_done(state: dict) -> bool:
         return (
-            sum(1 for t in state["tasks"] if t["status"] == "shipped")
-            >= target_shipped
+            sum(1 for t in state["tasks"] if t["status"] == "shipped") >= target_shipped
         )
 
     def _log_cycle(state: dict, cycle: int) -> None:
@@ -185,19 +180,24 @@ def main(
         )
 
     mode = (
-        f"choreography={choreography_name!r}" if choreography_name else f"profile={profile!r}"
+        f"choreography={choreography_name!r}"
+        if choreography_name
+        else f"profile={profile!r}"
     )
-    logger.info("Ordering system (pipeline) started — target=%d  %s", target_shipped, mode)
-
-    final_state = pipeline.run(
-        done_when=_is_done,
-        on_cycle=_log_cycle,
-        poll_every=3.0,
-        ombudsman_every=30.0,
-        max_cycles=max_cycles,
+    logger.info(
+        "Ordering system (pipeline) started — target=%d  %s",
+        target_shipped,
+        mode,
     )
 
-    producer.stop()
+    final_state = (
+        runtime.done_when(_is_done)
+        .on_cycle(_log_cycle)
+        .poll_every(3.0)
+        .ombudsman_every(30.0)
+        .max_cycles(max_cycles)
+        .run(pipeline)
+    )
 
     tasks = final_state["tasks"]
     shipped_count = sum(1 for t in tasks if t["status"] == "shipped")
