@@ -434,7 +434,7 @@ class MafPipeline(Pipeline):
         """Create a MafStageSpec that carries prompt/schema fields."""
         maf_fields = {k: v for k, v in kwargs.items() if k in {
             "execute_fn", "active_status", "success_status", "failure_status",
-            "max_working_time", "prompt", "output_schema",
+            "max_working_time", "tool_name", "prompt", "output_schema",
         }}
         return MafStageSpec(capability, **maf_fields)
 

@@ -32,6 +32,7 @@ from .pipeline import (
     generate_tool_descriptors,
 )
 from .runner import RunLoop
+from .runtime import QuadroRuntime
 from .ui import serve_board
 
 __all__ = [
@@ -46,6 +47,7 @@ __all__ = [
     "Pipeline",
     "QuadroBoard",
     "QuadroError",
+    "QuadroRuntime",
     "RunLoop",
     "StageSpec",
     "ToolDescriptor",

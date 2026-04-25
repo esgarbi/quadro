@@ -20,6 +20,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # shared.py
@@ -27,13 +28,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from quadro import (
     ChiefAgent,
-    LifecycleBuilder,
-    LocalA2ANetwork,
-    QuadroBoard,
-    RunLoop,
     WorkerPool,
 )
-from quadro.board.backends.sqlite import SqliteBoardBackend
 
 from agents import (
     build_chief_policy,
@@ -42,7 +38,19 @@ from agents import (
     run_review,
     run_writing,
 )
-from producer import ArticleProducer
+from runtime import (
+    CHIEF_URL,
+    CHOREOGRAPHIES,
+    DEFAULT_MAX_CYCLES,
+    WORKER_COUNT,
+    build_runtime,
+    load_lifecycle_override,
+    make_cycle_logger,
+    make_done_when,
+    mode_label,
+    print_final_summary,
+    start_article_producer,
+)
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -52,64 +60,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger("newsroom")
 
-# ── Named choreographies: list of (batch_size, wait_minutes) ──────────────────
-CHOREOGRAPHIES: dict[str, list[tuple[int, float]]] = {
-    "sleep_study": [(2, 0.0), (2, 5.0), (2, 5.0)],
-    "wave_study": [(3, 0.0), (2, 8.0), (2, 8.0)],
-}
-
-# ── Article lifecycle ──────────────────────────────────────────────────────────
-ARTICLE_LIFECYCLE = (
-    LifecycleBuilder()
-    .step("UNASSIGNED", "ideating")
-    .step("ideating", "idea_ready")
-    .step("idea_ready", "researching")
-    .step("researching", "research_ready")
-    .step("research_ready", "writing")
-    .step("writing", "draft_ready")
-    .step("draft_ready", "reviewing")
-    .step("reviewing", "published")
-    .revision("reviewing", "idea_ready")
-    .build()
-)
-
 
 def main(
-    target_articles: int = 20,
-    max_cycles: int = 1500,
+    target_articles: int = 5,
+    max_cycles: int = DEFAULT_MAX_CYCLES,
     choreography_name: str | None = None,
     lifecycle: object | None = None,
 ) -> None:
-    HERE = Path(__file__).parent
-    db_path = str(HERE / "newsroom.db")
-
-    active_lifecycle = lifecycle or ARTICLE_LIFECYCLE
-
     # ── Board ──────────────────────────────────────────────────────────────────
-    network = LocalA2ANetwork()
-    board = QuadroBoard(
-        SqliteBoardBackend(db_path),
-        profile_resolver={"article": "article"},
-        custom_profiles={"article": active_lifecycle},
-        network=network,
-    )
-    bc = board.client()
-
-    bc.put_data(
-        "newsroom_goal",
-        {
-            "target_articles": target_articles,
-            "topic": "health and wellbeing",
-        },
+    runtime = build_runtime(
+        target_articles=target_articles,
+        max_cycles=max_cycles,
+        lifecycle=lifecycle,
     )
 
     # ── Worker pool ────────────────────────────────────────────────────────────
-    CHIEF_URL = "a2a://chief"
-    POOL_SIZE = 12
-
     pool = (
-        WorkerPool(bc)
-        .workers(POOL_SIZE)
+        WorkerPool(runtime.client)
+        .workers(WORKER_COUNT)
         .wakes(CHIEF_URL)
         .add("ideation", run_ideation, active_status="ideating", max_working_time=5.0)
         .add(
@@ -121,91 +89,45 @@ def main(
     )
 
     # ── Chief ──────────────────────────────────────────────────────────────────
-    chief_policy = build_chief_policy(bc, pool.registry, pool.capacity())
-    chief = ChiefAgent.builder(bc).at(CHIEF_URL).policy(chief_policy).build()
+    chief_policy = build_chief_policy(runtime.client, pool.registry, pool.capacity())
+    chief = ChiefAgent.builder(runtime.client).at(CHIEF_URL).policy(chief_policy).build()
 
     # ── Ombudsman ──────────────────────────────────────────────────────────────
     wd = pool.ombudsman()
 
     # ── Producer ───────────────────────────────────────────────────────────────
-    choreo = CHOREOGRAPHIES.get(choreography_name) if choreography_name else None
-    producer = ArticleProducer(
-        bc,
+    producer = start_article_producer(
+        runtime,
         chief,
-        target=target_articles,
-        choreography=choreo,
+        target_articles=target_articles,
+        choreography_name=choreography_name,
     )
-
-    # ── Completion predicate ───────────────────────────────────────────────────
-    def _is_done(state: dict) -> bool:
-        return (
-            sum(1 for t in state["tasks"] if t["status"] == "published")
-            >= target_articles
-        )
-
-    # ── Per-cycle log ──────────────────────────────────────────────────────────
-    def _log_cycle(state: dict, cycle: int) -> None:
-        tasks = state["tasks"]
-        published = sum(1 for t in tasks if t["status"] == "published")
-        in_flight = sum(
-            1
-            for t in tasks
-            if t["status"] in {"ideating", "researching", "writing", "reviewing"}
-        )
-        pending = sum(
-            1
-            for t in tasks
-            if t["status"]
-            in {"UNASSIGNED", "idea_ready", "research_ready", "draft_ready"}
-        )
-        stats = producer.stats
-        logger.info(
-            "[cycle %3d]  published=%d/%d  in_flight=%d  pending=%d"
-            "  producer=[posted=%d/%d]",
-            cycle,
-            published,
-            target_articles,
-            in_flight,
-            pending,
-            stats["posted"],
-            stats["target"],
-        )
 
     # ── Run ────────────────────────────────────────────────────────────────────
-    mode = f"choreography={choreography_name!r}" if choreography_name else "default"
+    mode = mode_label(choreography_name)
     logger.info("Newsroom started — target=%d  %s", target_articles, mode)
 
+    manual_pipeline = SimpleNamespace(chief=chief, ombudsman=wd)
     final_state = (
-        RunLoop(board, chief)
-        .done_when(_is_done)
-        .on_cycle(_log_cycle)
-        .ombudsman(wd)
+        runtime.done_when(make_done_when(target_articles))
+        .on_cycle(
+            make_cycle_logger(
+                logger,
+                target_articles=target_articles,
+                producer=producer,
+            )
+        )
         .poll_every(3.0)
         .ombudsman_every(30.0)
-        .max_cycles(max_cycles)
-        .run()
+        .run(manual_pipeline)
     )
 
-    producer.stop()
-
     # ── Final summary ──────────────────────────────────────────────────────────
-    published_count = sum(1 for t in final_state["tasks"] if t["status"] == "published")
-
-    print(f"\n{'═' * 60}")
-    print(f"  Newsroom complete: {published_count}/{target_articles} published")
-    print(f"  Mode: {mode}")
-    print(f"{'═' * 60}")
-
-    articles_dir = HERE / "output"
-    if articles_dir.exists():
-        files = sorted(articles_dir.glob("*.md"))
-        print(f"\nArticles ({len(files)}):")
-        for f in files:
-            print(f"  {f.name}")
-
-    print("\nFinal task states:")
-    for t in final_state["tasks"]:
-        print(f"  [{t['status']:>16}]  {t['label'][:60]}")
+    published_count = print_final_summary(
+        final_state,
+        target_articles=target_articles,
+        mode=mode,
+    )
 
     if published_count < target_articles:
         sys.exit(1)
@@ -220,7 +142,7 @@ if __name__ == "__main__":
         "--target", type=int, default=5, help="Target number of published articles"
     )
     parser.add_argument(
-        "--cycles", type=int, default=500, help="Maximum run loop cycles"
+        "--cycles", type=int, default=DEFAULT_MAX_CYCLES, help="Maximum run loop cycles"
     )
     parser.add_argument(
         "--choreography",
@@ -236,11 +158,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    lifecycle_override = None
-    if args.lifecycle:
-        from quadro.board.lifecycle_loader import load_lifecycle
-
-        _name, lifecycle_override = load_lifecycle(args.lifecycle)
+    lifecycle_override = (
+        load_lifecycle_override(args.lifecycle) if args.lifecycle else None
+    )
 
     main(
         target_articles=args.target,

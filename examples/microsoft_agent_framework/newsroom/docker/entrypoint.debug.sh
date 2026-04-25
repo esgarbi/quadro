@@ -82,9 +82,9 @@ cd /app/examples/microsoft_agent_framework/newsroom
 if [ "$DEBUGPY_WAIT" = "1" ]; then
     echo "[debug-entrypoint] debugpy listening on 0.0.0.0:${DEBUGPY_PORT} — WAITING for debugger to attach ..."
     # shellcheck disable=SC2086
-    exec python -m debugpy --listen 0.0.0.0:${DEBUGPY_PORT} --wait-for-client main.py ${ARGS}
+    exec python -m debugpy --listen 0.0.0.0:${DEBUGPY_PORT} --wait-for-client main_pipeline.py ${ARGS}
 else
     echo "[debug-entrypoint] debugpy listening on 0.0.0.0:${DEBUGPY_PORT} (not waiting for attach)"
     # shellcheck disable=SC2086
-    exec python -m debugpy --listen 0.0.0.0:${DEBUGPY_PORT} main.py ${ARGS}
+    exec python -m debugpy --listen 0.0.0.0:${DEBUGPY_PORT} main_pipeline.py ${ARGS}
 fi

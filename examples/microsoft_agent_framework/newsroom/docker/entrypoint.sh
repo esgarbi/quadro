@@ -89,4 +89,4 @@ cd /app/examples/microsoft_agent_framework/newsroom
 
 # Use exec so main.py replaces this shell and receives signals cleanly.
 # shellcheck disable=SC2086
-exec python main.py ${ARGS}
+exec python main_pipeline.py ${ARGS}

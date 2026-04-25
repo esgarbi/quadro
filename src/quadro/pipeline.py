@@ -16,7 +16,7 @@ The entire module is zero-dependency (stdlib + quadro core only).
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -49,6 +49,7 @@ class StageSpec:
     success_status: str | None = None
     failure_status: str | None = None
     max_working_time: float | None = None
+    tool_name: str | None = None
 
     def __post_init__(self) -> None:
         if self.active_status is None:
@@ -99,7 +100,7 @@ def _predecessors_for(
 def generate_tool_descriptors(
     lifecycle: Any,
     *,
-    stage_map: dict[str, str],
+    stage_map: Mapping[str, str | tuple[str, str | None]],
     board_fn: Callable[[str, dict], dict],
     network: Any,
     worker_registry: dict[str, list[tuple[str, str]]],
@@ -116,7 +117,9 @@ def generate_tool_descriptors(
     lifecycle:
         A ``Lifecycle`` object.
     stage_map:
-        Maps ``active_status -> capability``.
+        Maps ``active_status -> capability`` or
+        ``active_status -> (capability, tool_name)``. When *tool_name* is not
+        provided, the generated tool name defaults to ``advance_to_{active_status}``.
     board_fn:
         Callable that sends an intent to the board.
     network:
@@ -131,7 +134,13 @@ def generate_tool_descriptors(
     raw = _extract_raw_transitions(lifecycle)
     descriptors: list[ToolDescriptor] = []
 
-    for active_status, capability in stage_map.items():
+    for active_status, stage_info in stage_map.items():
+        if isinstance(stage_info, tuple):
+            capability, configured_tool_name = stage_info
+        else:
+            capability = stage_info
+            configured_tool_name = None
+
         preds = _predecessors_for(raw, active_status)
         if not preds:
             logger.warning(
@@ -141,7 +150,7 @@ def generate_tool_descriptors(
             continue
 
         pred_label = ", ".join(sorted(preds))
-        tool_name = f"advance_to_{active_status}"
+        tool_name = configured_tool_name or f"advance_to_{active_status}"
         description = (
             f"Dispatch ALL tasks in [{pred_label}] to {active_status}. "
             f"Pass any task_id — the tool handles all eligible tasks. "
@@ -324,6 +333,7 @@ class Pipeline:
         success_status: str | None = None,
         failure_status: str | None = None,
         max_working_time: float | None = None,
+        tool_name: str | None = None,
         **kwargs: Any,
     ) -> Pipeline:
         """Add a pipeline stage.
@@ -339,6 +349,7 @@ class Pipeline:
                 success_status=success_status,
                 failure_status=failure_status,
                 max_working_time=max_working_time,
+                tool_name=tool_name,
                 **kwargs,
             )
         )
@@ -415,7 +426,7 @@ class Pipeline:
         if self._capacity_override is not None:
             pool_builder = pool_builder.capacity(self._capacity_override)
 
-        stage_map: dict[str, str] = {}
+        stage_map: dict[str, tuple[str, str | None]] = {}
 
         for spec in self._stages:
             fn = spec.execute_fn or self._make_auto_execute_fn(spec)
@@ -425,7 +436,7 @@ class Pipeline:
                 active_status=spec.active_status,
                 max_working_time=spec.max_working_time,
             )
-            stage_map[spec.active_status] = spec.capability
+            stage_map[spec.active_status] = (spec.capability, spec.tool_name)
 
         pool = pool_builder.build()
 
