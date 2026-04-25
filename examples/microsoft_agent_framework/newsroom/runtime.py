@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from quadro import LifecycleBuilder, QuadroRuntime
+from quadro.board.backends import SqliteBoardBackend
 
 from producer import ArticleProducer
 
@@ -50,8 +51,7 @@ def build_runtime(
     lifecycle: object | None = None,
 ) -> QuadroRuntime:
     active_lifecycle = lifecycle or ARTICLE_LIFECYCLE
-    runtime = QuadroRuntime.sqlite(
-        DB_PATH,
+    runtime = QuadroRuntime(SqliteBoardBackend(str(DB_PATH))).with_profiles(
         profile_resolver={"article": "article"},
         custom_profiles={"article": active_lifecycle},
     )

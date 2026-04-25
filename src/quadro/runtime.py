@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 from .a2a.dispatch import LocalA2ANetwork
-from .board.backends.sqlite import SqliteBoardBackend
+from .board.backends.base import BoardBackend
 from .board.board import QuadroBoard
 from .board.client import BoardClient
 from .runner import RunLoop
@@ -22,9 +21,13 @@ class QuadroRuntime:
     chief composition.
     """
 
-    def __init__(self, board: QuadroBoard) -> None:
-        self.board = board
-        self.client: BoardClient = board.client()
+    def __init__(self, backend: BoardBackend, *, network: Any | None = None) -> None:
+        self._backend = backend
+        self._network = network or LocalA2ANetwork()
+        self._profile_resolver: dict[str, str] | None = None
+        self._custom_profiles: dict[str, Any] | None = None
+        self._board: QuadroBoard | None = None
+        self._client: BoardClient | None = None
         self._done_predicate: Callable[[dict], bool] | None = None
         self._cycle_callback: Callable[[dict, int], None] | None = None
         self._complete_callback: Callable[[dict], None] | None = None
@@ -33,32 +36,56 @@ class QuadroRuntime:
         self._max_cycles = 500
         self._shutdown_hooks: list[Callable[[], None]] = []
 
-    @classmethod
-    def sqlite(
-        cls,
-        db_path: str | Path,
-        *,
+    def _assert_not_started(self) -> None:
+        if self._board is not None:
+            raise RuntimeError(
+                "QuadroRuntime configuration cannot change after board creation"
+            )
+
+    def _ensure_board(self) -> QuadroBoard:
+        if self._board is None:
+            self._board = QuadroBoard(
+                self._backend,
+                profile_resolver=self._profile_resolver,
+                custom_profiles=self._custom_profiles,
+                network=self._network,
+            )
+            self._client = self._board.client()
+        return self._board
+
+    def with_profiles(
+        self,
         profile_resolver: dict[str, str] | None = None,
         custom_profiles: dict[str, Any] | None = None,
-        network: Any | None = None,
     ) -> QuadroRuntime:
-        """Create a runtime backed by a SQLite board."""
-        active_network = network or LocalA2ANetwork()
-        board = QuadroBoard(
-            SqliteBoardBackend(str(db_path)),
-            profile_resolver=profile_resolver,
-            custom_profiles=custom_profiles,
-            network=active_network,
-        )
-        return cls(board)
+        self._assert_not_started()
+        self._profile_resolver = profile_resolver
+        self._custom_profiles = custom_profiles
+        return self
+
+    def with_network(self, network: Any) -> QuadroRuntime:
+        self._assert_not_started()
+        self._network = network
+        return self
 
     def put_data(self, key: str, value: Any) -> QuadroRuntime:
         self.client.put_data(key, value)
         return self
 
     @property
+    def board(self) -> QuadroBoard:
+        return self._ensure_board()
+
+    @property
+    def client(self) -> BoardClient:
+        self._ensure_board()
+        if self._client is None:
+            raise RuntimeError("QuadroRuntime failed to create a board client")
+        return self._client
+
+    @property
     def network(self) -> Any:
-        return self.client.network
+        return self._network
 
     def done_when(self, predicate: Callable[[dict], bool]) -> QuadroRuntime:
         self._done_predicate = predicate
