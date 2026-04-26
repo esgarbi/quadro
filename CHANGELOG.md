@@ -48,9 +48,9 @@
   without per-call-site changes.
 - `QuadroRuntime.drain_max_duration(td)` — override the 5-minute default
   fallback deadline used when a Sponsor returns `Drain(deadline=None)`.
-- New example `examples/crm_sponsor/` — mocked CRM ticket drives a
+- New example `examples/core/crm_sponsor/` — mocked CRM ticket drives a
   runtime's lifetime, showing the continuity story end-to-end.
-- `examples/llm_token_budget/` — MAF-backed ticket triage gated by an
+- `examples/microsoft_agent_framework/llm_token_budget/` — MAF-backed ticket triage gated by an
   `AllOf(QueueDepthSponsor, LlmTokenBudgetSponsor, DeadlineSponsor)`
   composition. Includes a sample report from a real run at two budget
   ceilings. The headline demonstration of token-cost governance.

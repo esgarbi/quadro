@@ -116,8 +116,8 @@ pip install -e ".[dev]"
 Run the deterministic examples (no API key needed):
 
 ```bash
-python examples/newsroom_cooperation.py
-python examples/ordering_system.py
+python examples/core/newsroom_cooperation/main.py
+python examples/core/ordering_system/main.py
 pytest  # 250+ tests, no external dependencies
 ```
 
@@ -305,7 +305,7 @@ This is a lifetime model, not a pattern primitive. The Board, Chief, and
 governed lifecycle are unchanged whether your Sponsor is a one-line predicate
 or an HTTP call to a ticketing system. See
 [`docs/design/sponsor.md`](docs/design/sponsor.md) for the full design and
-[`examples/crm_sponsor/`](examples/crm_sponsor/) for a worked CRM-gated run.
+[`examples/core/crm_sponsor/`](examples/core/crm_sponsor/) for a worked CRM-gated run.
 
 ---
 
@@ -516,8 +516,8 @@ The newsroom is a 9-stage pipeline where each task is a full article: topic idea
 
 Deterministic (no API key required):
 
-- `examples/newsroom_cooperation.py` — research / write / review pipeline, pure Python workers
-- `examples/ordering_system.py` — order lifecycle with board-held inventory
+- `examples/core/newsroom_cooperation/main.py` — research / write / review pipeline, pure Python workers
+- `examples/core/ordering_system/main.py` — order lifecycle with board-held inventory
 
 **Known limitations**
 

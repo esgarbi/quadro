@@ -15,8 +15,10 @@ adapter reuses:
 
 - `StageSpec` — describes one pipeline stage (capability, status
   transitions, `execute_fn`, etc.). Adapters may subclass to attach
-  framework-specific fields (the Microsoft Agent Framework adapter does
-  this with `MafStageSpec` — see `src/quadro/integrations/maf.py`).
+  framework-specific fields (the Microsoft Agent Framework adapter
+  does this with `MafStageSpec` in `src/quadro/integrations/maf.py`;
+  the LangChain adapter with `LangChainStageSpec` in
+  `src/quadro/integrations/langchain.py`).
 - `ToolDescriptor` — framework-neutral description of a chief tool.
 - `generate_tool_descriptors(...)` — derives tool descriptors from a
   lifecycle graph so the chief tool surface is computed once and each
@@ -42,10 +44,21 @@ construction (`.workers()`, `.capacity()`, `.wakes()`, `.stage()`,
 ### 2. `client_factory` — pluggable LLM provider
 
 The Microsoft Agent Framework adapter at `src/quadro/integrations/maf.py`
-routes every LLM call through a `client_factory` callable:
+and the LangChain adapter at `src/quadro/integrations/langchain.py`
+both route every LLM call through a `client_factory` callable:
 
 ```python
 from quadro.integrations.maf import configure
+
+configure(
+    api_key="sk-...",
+    model="gpt-4o-mini",
+    base_url="https://api.openai.com/v1",
+)
+```
+
+```python
+from quadro.integrations.langchain import configure
 
 configure(
     api_key="sk-...",
@@ -65,12 +78,14 @@ def _my_factory():
 configure(client_factory=_my_factory)
 ```
 
-The `MafPipeline` also accepts a per-pipeline factory via `.llm(...)`.
-Any OpenAI-compatible API (Together, Groq, Anthropic via proxy,
-Ollama, vLLM) works through the same seam because `agent-framework`
-talks to `OpenAIChatClient`. Native Anthropic, Bedrock, Vertex, or
-Cohere would require a new adapter (see below) because the wire format
-differs.
+Both `MafPipeline` and `LangChainPipeline` also accept a per-pipeline
+factory via `.llm(...)` and expose the same surface. Any
+OpenAI-compatible API (Together, Groq, Anthropic via proxy, Ollama,
+vLLM) works through the same seam because the underlying clients
+(`agent-framework`'s `OpenAIChatClient`, `langchain-openai`'s
+`ChatOpenAI`) both speak `/v1/chat/completions`. Native Anthropic,
+Bedrock, Vertex, or Cohere would require a new adapter (see below)
+because the wire format differs.
 
 ## Recipe: adding a new adapter
 
@@ -145,15 +160,15 @@ have a runnable end-to-end pipeline to copy from.
 
 ## When a concrete adapter lands upstream
 
-Quadro ships one reference adapter (Microsoft Agent Framework) and
-accepts contributions for others. Candidates under active discussion:
+Quadro ships two reference adapters — Microsoft Agent Framework
+(`MafPipeline`) and LangChain (`LangChainPipeline`) — and accepts
+contributions for others. Candidates under active discussion:
 
-- **LiteLLM** — a single-client proxy over ~100 providers. Likely the
-  second adapter because it maximises reach without a deep new
-  dependency.
+- **LiteLLM** — a single-client proxy over ~100 providers. Attractive
+  next step because it maximises reach without a deep new dependency.
 - **Native Anthropic / Bedrock / Vertex** — each has a non-OpenAI wire
   format and a distinct SDK; they warrant separate adapters rather than
-  being shoehorned into the MAF adapter.
-- **LangChain / LlamaIndex** — rejected for the reference set because
-  their statefulness conflicts with Quadro's Hydration discipline. An
-  opinionated community adapter would still be welcome.
+  being shoehorned into the existing ones.
+- **LlamaIndex** — a community adapter would still be welcome; the
+  existing two seams (`Pipeline` subclass + `client_factory`) are
+  sufficient to wire one up without changes to `quadro` core.

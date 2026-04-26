@@ -21,7 +21,7 @@ three sponsors:
 `AllOf` folds the three decisions with an axis-wise minimum lease —
 the runtime re-consults as soon as the tightest ceiling is hit, and
 any `Stop` from any child halts the whole composite. See
-[docs/guides/sponsor-decision-matrix.md](../../docs/guides/sponsor-decision-matrix.md)
+[docs/guides/sponsor-decision-matrix.md](../../../docs/guides/sponsor-decision-matrix.md)
 for the full rules.
 
 ## Run it twice
@@ -193,7 +193,7 @@ what the example produces without setting up the keys.
 - **Graceful wind-down vs. hard stop**: swapping the env var reveals
   both shapes (`Drain` when the queue empties, `Stop` when the budget
   trips). That maps straight onto the production cookbook in the
-  [Sponsor decision matrix](../../docs/guides/sponsor-decision-matrix.md#production-defaults-cookbook).
+  [Sponsor decision matrix](../../../docs/guides/sponsor-decision-matrix.md#production-defaults-cookbook).
 - **Telemetry you can see**: the live progress bar reads from the
   already-published `_sponsor_status` key on the board; no custom
   instrumentation needed.

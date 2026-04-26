@@ -1,0 +1,723 @@
+{
+  "meta": {
+    "budget": 50000,
+    "model": "gpt-5.4",
+    "endpoint": "https://api.openai.com/v1",
+    "total_tickets": 15,
+    "wall_time_s": 16.25,
+    "final_decision": "drain",
+    "final_reason": "all_of:queue_empty:tickets_queue",
+    "generated_at": "2026-04-26T19:28:20+00:00"
+  },
+  "summary": {
+    "classified": 15,
+    "failed": 0,
+    "tokens_used": 12765,
+    "budget": 50000,
+    "budget_utilisation_pct": 25.5
+  },
+  "sponsor_log": [
+    {
+      "at": "2026-04-26T19:28:09.287377+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": null,
+      "meters": {
+        "ticks": 0,
+        "wall_clock_elapsed_s": 5.375453,
+        "worker_invocations": 3,
+        "llm_tokens": 3036,
+        "board_events": 15
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:15>=1 & llm_tokens_budget:3036/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "8f691b8674e0",
+        "issued_at": "2026-04-26T19:28:09.287239+00:00",
+        "ticks": 1,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:15>=1 & llm_tokens_budget:3036/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": null
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:09.293183+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "8f691b8674e0",
+      "meters": {
+        "ticks": 1,
+        "wall_clock_elapsed_s": 5.381258,
+        "worker_invocations": 3,
+        "llm_tokens": 3036,
+        "board_events": 15
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:15>=1 & llm_tokens_budget:3036/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "658c3cc91d70",
+        "issued_at": "2026-04-26T19:28:09.293106+00:00",
+        "ticks": 2,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:15>=1 & llm_tokens_budget:3036/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "8f691b8674e0"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:09.893183+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "658c3cc91d70",
+      "meters": {
+        "ticks": 2,
+        "wall_clock_elapsed_s": 5.981255,
+        "worker_invocations": 4,
+        "llm_tokens": 3539,
+        "board_events": 16
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:12>=1 & llm_tokens_budget:3539/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "ae6a10354d06",
+        "issued_at": "2026-04-26T19:28:09.893110+00:00",
+        "ticks": 3,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:12>=1 & llm_tokens_budget:3539/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "658c3cc91d70"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:10.036484+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "ae6a10354d06",
+      "meters": {
+        "ticks": 3,
+        "wall_clock_elapsed_s": 6.124559,
+        "worker_invocations": 5,
+        "llm_tokens": 4034,
+        "board_events": 19
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:11>=1 & llm_tokens_budget:4034/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "7553f9b97f68",
+        "issued_at": "2026-04-26T19:28:10.036376+00:00",
+        "ticks": 4,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:11>=1 & llm_tokens_budget:4034/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "ae6a10354d06"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:10.190336+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "7553f9b97f68",
+      "meters": {
+        "ticks": 4,
+        "wall_clock_elapsed_s": 6.278411,
+        "worker_invocations": 6,
+        "llm_tokens": 4535,
+        "board_events": 20
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:10>=1 & llm_tokens_budget:4535/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "0690143b4e97",
+        "issued_at": "2026-04-26T19:28:10.190228+00:00",
+        "ticks": 5,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:10>=1 & llm_tokens_budget:4535/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "7553f9b97f68"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:11.204453+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "0690143b4e97",
+      "meters": {
+        "ticks": 5,
+        "wall_clock_elapsed_s": 7.292528,
+        "worker_invocations": 6,
+        "llm_tokens": 4992,
+        "board_events": 24
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:9>=1 & llm_tokens_budget:4992/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "24e872e7a3bc",
+        "issued_at": "2026-04-26T19:28:11.204342+00:00",
+        "ticks": 6,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:9>=1 & llm_tokens_budget:4992/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "0690143b4e97"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:11.765029+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "24e872e7a3bc",
+      "meters": {
+        "ticks": 6,
+        "wall_clock_elapsed_s": 7.853104,
+        "worker_invocations": 7,
+        "llm_tokens": 5513,
+        "board_events": 25
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:9>=1 & llm_tokens_budget:5513/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "762ee8107eaf",
+        "issued_at": "2026-04-26T19:28:11.764931+00:00",
+        "ticks": 7,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:9>=1 & llm_tokens_budget:5513/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "24e872e7a3bc"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:12.777562+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "762ee8107eaf",
+      "meters": {
+        "ticks": 7,
+        "wall_clock_elapsed_s": 8.865636,
+        "worker_invocations": 7,
+        "llm_tokens": 5513,
+        "board_events": 25
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:8>=1 & llm_tokens_budget:5513/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "e4dd07ae804f",
+        "issued_at": "2026-04-26T19:28:12.777471+00:00",
+        "ticks": 8,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:8>=1 & llm_tokens_budget:5513/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "762ee8107eaf"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:12.992973+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "e4dd07ae804f",
+      "meters": {
+        "ticks": 8,
+        "wall_clock_elapsed_s": 9.081048,
+        "worker_invocations": 8,
+        "llm_tokens": 6501,
+        "board_events": 28
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:8>=1 & llm_tokens_budget:6501/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "7df6334b979e",
+        "issued_at": "2026-04-26T19:28:12.992877+00:00",
+        "ticks": 9,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:8>=1 & llm_tokens_budget:6501/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "e4dd07ae804f"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:13.191742+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "7df6334b979e",
+      "meters": {
+        "ticks": 9,
+        "wall_clock_elapsed_s": 9.279816,
+        "worker_invocations": 9,
+        "llm_tokens": 7012,
+        "board_events": 29
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:7>=1 & llm_tokens_budget:7012/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "a5a76f50119a",
+        "issued_at": "2026-04-26T19:28:13.191643+00:00",
+        "ticks": 10,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:7>=1 & llm_tokens_budget:7012/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "7df6334b979e"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:14.202713+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "a5a76f50119a",
+      "meters": {
+        "ticks": 10,
+        "wall_clock_elapsed_s": 10.290788,
+        "worker_invocations": 9,
+        "llm_tokens": 7012,
+        "board_events": 33
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:6>=1 & llm_tokens_budget:7012/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "5fe35b647e95",
+        "issued_at": "2026-04-26T19:28:14.202618+00:00",
+        "ticks": 11,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:6>=1 & llm_tokens_budget:7012/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "a5a76f50119a"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:15.214550+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "5fe35b647e95",
+      "meters": {
+        "ticks": 11,
+        "wall_clock_elapsed_s": 11.302625,
+        "worker_invocations": 9,
+        "llm_tokens": 7012,
+        "board_events": 33
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:6>=1 & llm_tokens_budget:7012/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "66daa78a3834",
+        "issued_at": "2026-04-26T19:28:15.214445+00:00",
+        "ticks": 12,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:6>=1 & llm_tokens_budget:7012/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "5fe35b647e95"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:15.224706+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "66daa78a3834",
+      "meters": {
+        "ticks": 12,
+        "wall_clock_elapsed_s": 11.31278,
+        "worker_invocations": 9,
+        "llm_tokens": 7012,
+        "board_events": 33
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:6>=1 & llm_tokens_budget:7012/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "65480c83d7ff",
+        "issued_at": "2026-04-26T19:28:15.224630+00:00",
+        "ticks": 13,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:6>=1 & llm_tokens_budget:7012/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "66daa78a3834"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:15.945285+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "65480c83d7ff",
+      "meters": {
+        "ticks": 13,
+        "wall_clock_elapsed_s": 12.033359,
+        "worker_invocations": 11,
+        "llm_tokens": 9061,
+        "board_events": 35
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:6>=1 & llm_tokens_budget:9061/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "26c4b6f5bf04",
+        "issued_at": "2026-04-26T19:28:15.945194+00:00",
+        "ticks": 14,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:6>=1 & llm_tokens_budget:9061/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "65480c83d7ff"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:15.950431+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "26c4b6f5bf04",
+      "meters": {
+        "ticks": 14,
+        "wall_clock_elapsed_s": 12.038505,
+        "worker_invocations": 11,
+        "llm_tokens": 9061,
+        "board_events": 35
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:4>=1 & llm_tokens_budget:9061/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "ce928376c879",
+        "issued_at": "2026-04-26T19:28:15.950363+00:00",
+        "ticks": 15,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:4>=1 & llm_tokens_budget:9061/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "26c4b6f5bf04"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:16.066472+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "ce928376c879",
+      "meters": {
+        "ticks": 15,
+        "wall_clock_elapsed_s": 12.154546,
+        "worker_invocations": 12,
+        "llm_tokens": 9555,
+        "board_events": 36
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:4>=1 & llm_tokens_budget:9555/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "fec8cc1e891b",
+        "issued_at": "2026-04-26T19:28:16.066393+00:00",
+        "ticks": 16,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:4>=1 & llm_tokens_budget:9555/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "ce928376c879"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:17.078266+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "fec8cc1e891b",
+      "meters": {
+        "ticks": 16,
+        "wall_clock_elapsed_s": 13.166341,
+        "worker_invocations": 12,
+        "llm_tokens": 10484,
+        "board_events": 42
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:3>=1 & llm_tokens_budget:10484/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "015826ae11a3",
+        "issued_at": "2026-04-26T19:28:17.078172+00:00",
+        "ticks": 17,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:3>=1 & llm_tokens_budget:10484/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "fec8cc1e891b"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:17.829433+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "015826ae11a3",
+      "meters": {
+        "ticks": 17,
+        "wall_clock_elapsed_s": 13.917509,
+        "worker_invocations": 13,
+        "llm_tokens": 10989,
+        "board_events": 43
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:3>=1 & llm_tokens_budget:10989/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "b2d444e3a36b",
+        "issued_at": "2026-04-26T19:28:17.829262+00:00",
+        "ticks": 18,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:3>=1 & llm_tokens_budget:10989/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "015826ae11a3"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:18.033716+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "b2d444e3a36b",
+      "meters": {
+        "ticks": 18,
+        "wall_clock_elapsed_s": 14.12179,
+        "worker_invocations": 14,
+        "llm_tokens": 11514,
+        "board_events": 44
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:2>=1 & llm_tokens_budget:11514/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "69c08d2dfd29",
+        "issued_at": "2026-04-26T19:28:18.033618+00:00",
+        "ticks": 19,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:2>=1 & llm_tokens_budget:11514/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "b2d444e3a36b"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:18.127067+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "69c08d2dfd29",
+      "meters": {
+        "ticks": 19,
+        "wall_clock_elapsed_s": 14.215142,
+        "worker_invocations": 15,
+        "llm_tokens": 12426,
+        "board_events": 45
+      },
+      "decision": "continue",
+      "reason": "all_of:queue_depth:1>=1 & llm_tokens_budget:12426/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+      "lease": {
+        "id": "7cec748b821d",
+        "issued_at": "2026-04-26T19:28:18.126962+00:00",
+        "ticks": 20,
+        "deadline": "2026-04-26T19:31:03.911856+00:00",
+        "worker_invocations": null,
+        "llm_tokens": 50000,
+        "board_events": null,
+        "source": "all_of",
+        "reason": "queue_depth:1>=1 & llm_tokens_budget:12426/50000 & deadline:2026-04-26T19:31:03.911856+00:00",
+        "renewal_of": "69c08d2dfd29"
+      }
+    },
+    {
+      "at": "2026-04-26T19:28:19.135701+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": "7cec748b821d",
+      "meters": {
+        "ticks": 20,
+        "wall_clock_elapsed_s": 15.223775,
+        "worker_invocations": 15,
+        "llm_tokens": 12765,
+        "board_events": 45
+      },
+      "decision": "drain",
+      "reason": "all_of:queue_empty:tickets_queue",
+      "deadline": null
+    }
+  ],
+  "tickets": [
+    {
+      "task_id": "xfq8v",
+      "ticket_id": "T-001",
+      "subject": "Can't log in",
+      "body": "Hi team \u2014 I've been trying to log in since this morning and I keep getting 'invalid credentials'. I've reset my password twice. This is blocking my team. Any ideas? \u2014 Marcus",
+      "status": "classified",
+      "urgency": "high",
+      "category": "account",
+      "suggested_reply": "Sorry you're running into this \u2014 I can see this is blocking your team. We\u2019re looking into the login issue now; please confirm the email address on the account and whether everyone on the team is affected.",
+      "raw_output": "{\"urgency\":\"high\",\"category\":\"account\",\"suggested_reply\":\"Sorry you're running into this \u2014 I can see this is blocking your team. We\u2019re looking into the login issue now; please confirm the email address on the account and whether everyone on the team is affected.\"}"
+    },
+    {
+      "task_id": "x0l79",
+      "ticket_id": "T-002",
+      "subject": "Billing question",
+      "body": "Could you explain the $49 line item on my March invoice labelled 'platform uplift'? We weren't expecting that charge.",
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for flagging this. I can help review the $49 'platform uplift' charge on your March invoice and clarify what it relates to.",
+      "raw_output": "{\"urgency\":\"medium\",\"category\":\"billing\",\"suggested_reply\":\"Thanks for flagging this. I can help review the $49 'platform uplift' charge on your March invoice and clarify what it relates to.\"}"
+    },
+    {
+      "task_id": "j8nx4",
+      "ticket_id": "T-003",
+      "subject": "Feature request: bulk export",
+      "body": "Would love to be able to export the activity log for the whole quarter in a single CSV. Right now I have to click through month-by-month.",
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the suggestion \u2014 I can see how exporting a full quarter in one CSV would save time. I\u2019ve shared this as a feature request with the team, and we appreciate the detailed feedback.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"feature_request\",\"suggested_reply\":\"Thanks for the suggestion \u2014 I can see how exporting a full quarter in one CSV would save time. I\u2019ve shared this as a feature request with the team, and we appreciate the detailed feedback.\"}"
+    },
+    {
+      "task_id": "7qcu0",
+      "ticket_id": "T-004",
+      "subject": "EVERYTHING IS DOWN",
+      "body": "our entire checkout flow is returning 500s from your API since 09:12 UTC. we are losing revenue. please escalate.",
+      "status": "classified",
+      "urgency": "critical",
+      "category": "outage",
+      "suggested_reply": "Thanks for flagging this \u2014 we understand your checkout flow is returning 500 errors and impacting revenue. We\u2019re treating this as urgent and are escalating for immediate investigation.",
+      "raw_output": "{\"urgency\":\"critical\",\"category\":\"outage\",\"suggested_reply\":\"Thanks for flagging this \u2014 we understand your checkout flow is returning 500 errors and impacting revenue. We\u2019re treating this as urgent and are escalating for immediate investigation.\"}"
+    },
+    {
+      "task_id": "l5gbz",
+      "ticket_id": "T-005",
+      "subject": "Thanks!",
+      "body": "Just wanted to say the new dashboard is really well done. My team noticed the p95 latency widget immediately.",
+      "status": "classified",
+      "urgency": "low",
+      "category": "other",
+      "suggested_reply": "Thanks so much for the kind words\u2014we\u2019re glad the new dashboard is landing well with your team. We appreciate the feedback, especially hearing that the p95 latency widget was immediately useful.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"other\",\"suggested_reply\":\"Thanks so much for the kind words\u2014we\u2019re glad the new dashboard is landing well with your team. We appreciate the feedback, especially hearing that the p95 latency widget was immediately useful.\"}"
+    },
+    {
+      "task_id": "c79fo",
+      "ticket_id": "T-006",
+      "subject": "Question about SSO",
+      "body": "We're migrating to Okta next month. Does your SAML integration support group-based role mapping, or only user-level assignment?",
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for reaching out about your Okta migration. I can help clarify how our SAML integration handles role mapping and user assignment options.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"feature_request\",\"suggested_reply\":\"Thanks for reaching out about your Okta migration. I can help clarify how our SAML integration handles role mapping and user assignment options.\"}"
+    },
+    {
+      "task_id": "scip2",
+      "ticket_id": "T-007",
+      "subject": "Double charge",
+      "body": "I was charged twice for last month's subscription. Invoice INV-88123 and INV-88127. Please refund one of them. Also \u2014 how did this happen?",
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for flagging this \u2014 I\u2019m sorry about the duplicate charge. We\u2019ll review invoices INV-88123 and INV-88127 and help sort out the refund, and we can also look into what caused the duplicate billing.",
+      "raw_output": "{\"urgency\":\"medium\",\"category\":\"billing\",\"suggested_reply\":\"Thanks for flagging this \u2014 I\u2019m sorry about the duplicate charge. We\u2019ll review invoices INV-88123 and INV-88127 and help sort out the refund, and we can also look into what caused the duplicate billing.\"}"
+    },
+    {
+      "task_id": "yw13e",
+      "ticket_id": "T-008",
+      "subject": "API rate limit on /v1/export",
+      "body": "We're hitting 429s on /v1/export even though our usage dashboard says we're at 40% of our monthly quota. Are there per-endpoint caps I'm missing?",
+      "status": "classified",
+      "urgency": "medium",
+      "category": "other",
+      "suggested_reply": "Thanks for flagging this \u2014 I\u2019m sorry for the trouble with the 429s on /v1/export. We\u2019ll help check whether endpoint-specific rate limits or account-level throttles are affecting your requests.",
+      "raw_output": "{\"urgency\":\"medium\",\"category\":\"other\",\"suggested_reply\":\"Thanks for flagging this \u2014 I\u2019m sorry for the trouble with the 429s on /v1/export. We\u2019ll help check whether endpoint-specific rate limits or account-level throttles are affecting your requests.\"}"
+    },
+    {
+      "task_id": "eu5ep",
+      "ticket_id": "T-009",
+      "subject": "Account locked",
+      "body": "I was travelling, tried to sign in from a new laptop, now my account is locked and the 'unlock' email never arrives. I've checked spam. Can someone unlock manually?",
+      "status": "classified",
+      "urgency": "high",
+      "category": "account",
+      "suggested_reply": "Sorry you\u2019re having trouble accessing your account. I can help review the lockout and the missing unlock email so we can get you back in as quickly as possible.",
+      "raw_output": "{\"urgency\":\"high\",\"category\":\"account\",\"suggested_reply\":\"Sorry you\u2019re having trouble accessing your account. I can help review the lockout and the missing unlock email so we can get you back in as quickly as possible.\"}"
+    },
+    {
+      "task_id": "h9rmg",
+      "ticket_id": "T-010",
+      "subject": "Data export still failing",
+      "body": "This is the third ticket on this. Every time I kick off a full org export it gets to ~60% and silently dies \u2014 no email, no error on the UI. I have a compliance deadline Friday.",
+      "status": "classified",
+      "urgency": "high",
+      "category": "other",
+      "suggested_reply": "Thanks for flagging this again \u2014 I\u2019m sorry the org export is failing without any error. I understand you have a compliance deadline Friday, and we\u2019ll review the repeated export failure details with priority.",
+      "raw_output": "{\"urgency\":\"high\",\"category\":\"other\",\"suggested_reply\":\"Thanks for flagging this again \u2014 I\u2019m sorry the org export is failing without any error. I understand you have a compliance deadline Friday, and we\u2019ll review the repeated export failure details with priority.\"}"
+    },
+    {
+      "task_id": "psyuz",
+      "ticket_id": "T-011",
+      "subject": "Feature: dark mode",
+      "body": "hey, dark mode when? my eyes.",
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the feedback \u2014 I can see how dark mode would make things much easier on the eyes. I\u2019ve shared this as a feature request with the team and appreciate you taking the time to let us know.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"feature_request\",\"suggested_reply\":\"Thanks for the feedback \u2014 I can see how dark mode would make things much easier on the eyes. I\u2019ve shared this as a feature request with the team and appreciate you taking the time to let us know.\"}"
+    },
+    {
+      "task_id": "wq567",
+      "ticket_id": "T-012",
+      "subject": "Invoice address wrong",
+      "body": "Could you update the billing address on our account from the old London office (42 Heddon St) to our new one (8 Marshalsea Rd)? Tax ID unchanged.",
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for the update \u2014 we can help with changing the billing address on your account. We\u2019ve noted the new address and that your Tax ID remains unchanged, and we\u2019ll review the account details with you.",
+      "raw_output": "{\"urgency\":\"medium\",\"category\":\"billing\",\"suggested_reply\":\"Thanks for the update \u2014 we can help with changing the billing address on your account. We\u2019ve noted the new address and that your Tax ID remains unchanged, and we\u2019ll review the account details with you.\"}"
+    },
+    {
+      "task_id": "1vsgw",
+      "ticket_id": "T-013",
+      "subject": "Suspicious login attempt",
+      "body": "I got an alert email about a sign-in attempt from an IP in a country I've never been to. I've already rotated my password and enabled 2FA. Can someone confirm whether the attempt actually succeeded, and check the audit log for any data access?",
+      "status": "classified",
+      "urgency": "critical",
+      "category": "account",
+      "suggested_reply": "Thanks for flagging this. We\u2019re reviewing the sign-in activity and audit trail now to help confirm whether the attempt succeeded and whether there was any account access.",
+      "raw_output": "{\"urgency\":\"critical\",\"category\":\"account\",\"suggested_reply\":\"Thanks for flagging this. We\u2019re reviewing the sign-in activity and audit trail now to help confirm whether the attempt succeeded and whether there was any account access.\"}"
+    },
+    {
+      "task_id": "qzugj",
+      "ticket_id": "T-014",
+      "subject": "Price quote for 50 seats",
+      "body": "We're scoping a rollout to an additional 50 users on top of our current 20. Can you send over enterprise pricing and whether volume discounts apply above 100 seats?",
+      "status": "classified",
+      "urgency": "low",
+      "category": "billing",
+      "suggested_reply": "Thanks for reaching out about expanding your rollout. We can share enterprise pricing details and discuss how volume discounts may apply as your seat count grows.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"billing\",\"suggested_reply\":\"Thanks for reaching out about expanding your rollout. We can share enterprise pricing details and discuss how volume discounts may apply as your seat count grows.\"}"
+    },
+    {
+      "task_id": "01s51",
+      "ticket_id": "T-015",
+      "subject": "Webhook retries",
+      "body": "I notice your webhooks retry 3 times with no jitter. On our side a 3-attempt burst overlaps with our primary DB failover window once a week and we lose the event. Could you add configurable retry spacing, or at least surface the dead-letter queue to customers?",
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the detailed feedback on webhook retry behavior. I can see how the current retry pattern can cause missed events during your failover window, and I\u2019ll share this with the team for review.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"feature_request\",\"suggested_reply\":\"Thanks for the detailed feedback on webhook retry behavior. I can see how the current retry pattern can cause missed events during your failover window, and I\u2019ll share this with the team for review.\"}"
+    }
+  ]
+}

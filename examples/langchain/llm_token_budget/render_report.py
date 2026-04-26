@@ -1,6 +1,6 @@
 """Render two run.json artefacts from main.py into a combined REPORT.md.
 
-Pure stdlib, no runtime dependency on quadro or agent-framework. Designed
+Pure stdlib, no runtime dependency on quadro or langchain. Designed
 to be idempotent: given the same two run.json inputs, it always produces
 the same markdown.
 
@@ -183,7 +183,7 @@ def render_report(generous: dict, tight: dict) -> str:
     parts.append("# Token-Budget Run Report")
     parts.append("")
     parts.append(
-        f"*Real runs of `examples/llm_token_budget/main.py` against `{model}` at `{endpoint}`.*"
+        f"*Real runs of `examples/langchain/llm_token_budget/main.py` against `{model}` at `{endpoint}`.*"
     )
     parts.append("")
     parts.append("## Two runs, one binary, two termination paths")
@@ -214,22 +214,25 @@ def render_report(generous: dict, tight: dict) -> str:
 
             ```mermaid
             flowchart LR
-              W["MAF classifier turn"] -->|usage| M["token_reporter"]
+              W["LangChain classifier turn"] -->|usage| M["token_reporter"]
               M --> B["runtime.meters"]
               B -->|snapshot on consult| S["LlmTokenBudgetSponsor"]
               S -->|Continue / Stop| R["RunLoop"]
             ```
 
-            Every MAF turn (chief and classifier) emits a `usage` record in
-            its event stream. The adapter extracts `prompt_tokens +
-            completion_tokens` and calls the `token_reporter` you wired via
-            `MafPipeline.llm(token_reporter=runtime.meters.report_llm_tokens)`.
+            Every LangChain call (chief and classifier) surfaces token
+            accounting on the returned `AIMessage` — the adapter probes
+            `usage_metadata`, `response_metadata["token_usage"]`, and
+            `response_metadata["usage"]` in turn, sums
+            `prompt_tokens + completion_tokens`, and calls the
+            `token_reporter` you wired via
+            `LangChainPipeline.llm(token_reporter=runtime.meters.report_llm_tokens)`.
             `LlmTokenBudgetSponsor` reads `ctx.meters.llm_tokens` on each
             consultation and halts the run when cumulative usage exceeds
             the budget.
 
             See [../README.md](../README.md) for the wiring details and
-            [../../../docs/guides/sponsor-decision-matrix.md](../../../docs/guides/sponsor-decision-matrix.md)
+            [../../../../docs/guides/sponsor-decision-matrix.md](../../../../docs/guides/sponsor-decision-matrix.md)
             for the full sponsor cookbook.
             """
         ).strip()

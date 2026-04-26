@@ -1,0 +1,202 @@
+{
+  "meta": {
+    "budget": 500,
+    "model": "gpt-5.4",
+    "endpoint": "https://api.openai.com/v1",
+    "total_tickets": 15,
+    "wall_time_s": 12.68,
+    "final_decision": "stop",
+    "final_reason": "all_of:llm_tokens_budget_exhausted:13407/500",
+    "generated_at": "2026-04-26T19:28:40+00:00"
+  },
+  "summary": {
+    "classified": 15,
+    "failed": 0,
+    "tokens_used": 13407,
+    "budget": 500,
+    "budget_utilisation_pct": 2681.4
+  },
+  "sponsor_log": [
+    {
+      "at": "2026-04-26T19:28:40.031300+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": null,
+      "meters": {
+        "ticks": 0,
+        "wall_clock_elapsed_s": 12.675178,
+        "worker_invocations": 15,
+        "llm_tokens": 13407,
+        "board_events": 45
+      },
+      "decision": "stop",
+      "reason": "all_of:llm_tokens_budget_exhausted:13407/500"
+    }
+  ],
+  "tickets": [
+    {
+      "task_id": "38u7v",
+      "ticket_id": "T-001",
+      "subject": "Can't log in",
+      "body": "Hi team \u2014 I've been trying to log in since this morning and I keep getting 'invalid credentials'. I've reset my password twice. This is blocking my team. Any ideas? \u2014 Marcus",
+      "status": "classified",
+      "urgency": "high",
+      "category": "account",
+      "suggested_reply": "Sorry you\u2019re running into this. Since password resets haven\u2019t resolved the invalid credentials error and it\u2019s blocking your team, we\u2019ll investigate your account access issue right away.",
+      "raw_output": "{\"urgency\":\"high\",\"category\":\"account\",\"suggested_reply\":\"Sorry you\u2019re running into this. Since password resets haven\u2019t resolved the invalid credentials error and it\u2019s blocking your team, we\u2019ll investigate your account access issue right away.\"}"
+    },
+    {
+      "task_id": "dqmnw",
+      "ticket_id": "T-002",
+      "subject": "Billing question",
+      "body": "Could you explain the $49 line item on my March invoice labelled 'platform uplift'? We weren't expecting that charge.",
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for flagging this \u2014 I can help review the $49 'platform uplift' charge on your March invoice. We\u2019re looking into the invoice details now and will follow up with clarification on what it covers.",
+      "raw_output": "{\"urgency\":\"medium\",\"category\":\"billing\",\"suggested_reply\":\"Thanks for flagging this \u2014 I can help review the $49 'platform uplift' charge on your March invoice. We\u2019re looking into the invoice details now and will follow up with clarification on what it covers.\"}"
+    },
+    {
+      "task_id": "qnook",
+      "ticket_id": "T-003",
+      "subject": "Feature request: bulk export",
+      "body": "Would love to be able to export the activity log for the whole quarter in a single CSV. Right now I have to click through month-by-month.",
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the feedback \u2014 I can see how exporting a full quarter in one CSV would make this much easier. I\u2019ve noted this feature request for the team and appreciate you sharing the workflow pain point.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"feature_request\",\"suggested_reply\":\"Thanks for the feedback \u2014 I can see how exporting a full quarter in one CSV would make this much easier. I\u2019ve noted this feature request for the team and appreciate you sharing the workflow pain point.\"}"
+    },
+    {
+      "task_id": "g0zl6",
+      "ticket_id": "T-004",
+      "subject": "EVERYTHING IS DOWN",
+      "body": "our entire checkout flow is returning 500s from your API since 09:12 UTC. we are losing revenue. please escalate.",
+      "status": "classified",
+      "urgency": "critical",
+      "category": "outage",
+      "suggested_reply": "Thanks for flagging this \u2014 we understand your checkout flow is returning 500s and that this is impacting revenue. We\u2019re escalating this as an urgent outage and investigating now.",
+      "raw_output": "{\"urgency\":\"critical\",\"category\":\"outage\",\"suggested_reply\":\"Thanks for flagging this \u2014 we understand your checkout flow is returning 500s and that this is impacting revenue. We\u2019re escalating this as an urgent outage and investigating now.\"}"
+    },
+    {
+      "task_id": "0xwnj",
+      "ticket_id": "T-005",
+      "subject": "Thanks!",
+      "body": "Just wanted to say the new dashboard is really well done. My team noticed the p95 latency widget immediately.",
+      "status": "classified",
+      "urgency": "low",
+      "category": "other",
+      "suggested_reply": "Thanks so much for the kind words\u2014we\u2019re glad to hear the new dashboard is helping your team spot performance issues quickly. We\u2019ll pass this feedback along to the product team.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"other\",\"suggested_reply\":\"Thanks so much for the kind words\u2014we\u2019re glad to hear the new dashboard is helping your team spot performance issues quickly. We\u2019ll pass this feedback along to the product team.\"}"
+    },
+    {
+      "task_id": "vrwx0",
+      "ticket_id": "T-006",
+      "subject": "Question about SSO",
+      "body": "We're migrating to Okta next month. Does your SAML integration support group-based role mapping, or only user-level assignment?",
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for reaching out about your Okta migration. I can help clarify how our SAML integration handles role mapping and user assignment options.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"feature_request\",\"suggested_reply\":\"Thanks for reaching out about your Okta migration. I can help clarify how our SAML integration handles role mapping and user assignment options.\"}"
+    },
+    {
+      "task_id": "2zfg0",
+      "ticket_id": "T-007",
+      "subject": "Double charge",
+      "body": "I was charged twice for last month's subscription. Invoice INV-88123 and INV-88127. Please refund one of them. Also \u2014 how did this happen?",
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for flagging this \u2014 I\u2019m sorry for the duplicate charge. We\u2019ll review invoices INV-88123 and INV-88127 and help sort out the refund, and we can also look into what caused the duplicate billing.",
+      "raw_output": "{\"urgency\":\"medium\",\"category\":\"billing\",\"suggested_reply\":\"Thanks for flagging this \u2014 I\u2019m sorry for the duplicate charge. We\u2019ll review invoices INV-88123 and INV-88127 and help sort out the refund, and we can also look into what caused the duplicate billing.\"}"
+    },
+    {
+      "task_id": "r772u",
+      "ticket_id": "T-008",
+      "subject": "API rate limit on /v1/export",
+      "body": "We're hitting 429s on /v1/export even though our usage dashboard says we're at 40% of our monthly quota. Are there per-endpoint caps I'm missing?",
+      "status": "classified",
+      "urgency": "medium",
+      "category": "other",
+      "suggested_reply": "Thanks for flagging this \u2014 I can see how unexpected 429s on /v1/export would be disruptive. We\u2019ll review whether endpoint-specific rate limits or account-level throttles could be affecting your requests.",
+      "raw_output": "{\"urgency\":\"medium\",\"category\":\"other\",\"suggested_reply\":\"Thanks for flagging this \u2014 I can see how unexpected 429s on /v1/export would be disruptive. We\u2019ll review whether endpoint-specific rate limits or account-level throttles could be affecting your requests.\"}"
+    },
+    {
+      "task_id": "9wdt1",
+      "ticket_id": "T-009",
+      "subject": "Account locked",
+      "body": "I was travelling, tried to sign in from a new laptop, now my account is locked and the 'unlock' email never arrives. I've checked spam. Can someone unlock manually?",
+      "status": "classified",
+      "urgency": "high",
+      "category": "account",
+      "suggested_reply": "Sorry you\u2019re unable to access your account. We can help review the lock and email delivery issue\u2014please confirm the account email address and any recent sign-in attempts so we can investigate.",
+      "raw_output": "{\"urgency\":\"high\",\"category\":\"account\",\"suggested_reply\":\"Sorry you\u2019re unable to access your account. We can help review the lock and email delivery issue\u2014please confirm the account email address and any recent sign-in attempts so we can investigate.\"}"
+    },
+    {
+      "task_id": "6b1sm",
+      "ticket_id": "T-010",
+      "subject": "Data export still failing",
+      "body": "This is the third ticket on this. Every time I kick off a full org export it gets to ~60% and silently dies \u2014 no email, no error on the UI. I have a compliance deadline Friday.",
+      "status": "classified",
+      "urgency": "high",
+      "category": "other",
+      "suggested_reply": "Thanks for flagging this again, and I\u2019m sorry you\u2019re running into repeated failures with the full org export. I understand you have a compliance deadline Friday, and we\u2019ll investigate why the export is stopping around 60% with no error.",
+      "raw_output": "{\"urgency\":\"high\",\"category\":\"other\",\"suggested_reply\":\"Thanks for flagging this again, and I\u2019m sorry you\u2019re running into repeated failures with the full org export. I understand you have a compliance deadline Friday, and we\u2019ll investigate why the export is stopping around 60% with no error.\"}"
+    },
+    {
+      "task_id": "a9rue",
+      "ticket_id": "T-011",
+      "subject": "Feature: dark mode",
+      "body": "hey, dark mode when? my eyes.",
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the feedback\u2014we understand dark mode would make the product more comfortable to use. I\u2019ve shared this as a feature request with the team, and we appreciate you letting us know it\u2019s important to you.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"feature_request\",\"suggested_reply\":\"Thanks for the feedback\u2014we understand dark mode would make the product more comfortable to use. I\u2019ve shared this as a feature request with the team, and we appreciate you letting us know it\u2019s important to you.\"}"
+    },
+    {
+      "task_id": "okmd4",
+      "ticket_id": "T-012",
+      "subject": "Invoice address wrong",
+      "body": "Could you update the billing address on our account from the old London office (42 Heddon St) to our new one (8 Marshalsea Rd)? Tax ID unchanged.",
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for reaching out \u2014 we can help update the billing address on your account. I\u2019ve noted the new address and that your Tax ID remains unchanged, and we\u2019ll review this with the billing team.",
+      "raw_output": "{\"urgency\":\"medium\",\"category\":\"billing\",\"suggested_reply\":\"Thanks for reaching out \u2014 we can help update the billing address on your account. I\u2019ve noted the new address and that your Tax ID remains unchanged, and we\u2019ll review this with the billing team.\"}"
+    },
+    {
+      "task_id": "aq8ne",
+      "ticket_id": "T-013",
+      "subject": "Suspicious login attempt",
+      "body": "I got an alert email about a sign-in attempt from an IP in a country I've never been to. I've already rotated my password and enabled 2FA. Can someone confirm whether the attempt actually succeeded, and check the audit log for any data access?",
+      "status": "classified",
+      "urgency": "critical",
+      "category": "account",
+      "suggested_reply": "Thanks for flagging this \u2014 we\u2019re reviewing the sign-in activity and audit logs to verify whether the attempt succeeded and whether any data was accessed. We\u2019ll follow up with what we can confirm and any recommended next steps to secure the account.",
+      "raw_output": "{\"urgency\":\"critical\",\"category\":\"account\",\"suggested_reply\":\"Thanks for flagging this \u2014 we\u2019re reviewing the sign-in activity and audit logs to verify whether the attempt succeeded and whether any data was accessed. We\u2019ll follow up with what we can confirm and any recommended next steps to secure the account.\"}"
+    },
+    {
+      "task_id": "ftkmh",
+      "ticket_id": "T-014",
+      "subject": "Price quote for 50 seats",
+      "body": "We're scoping a rollout to an additional 50 users on top of our current 20. Can you send over enterprise pricing and whether volume discounts apply above 100 seats?",
+      "status": "classified",
+      "urgency": "low",
+      "category": "billing",
+      "suggested_reply": "Thanks for reaching out \u2014 we\u2019d be happy to help with enterprise pricing for expanding your rollout. We can share pricing details and discuss whether volume discounts may apply as your seat count grows.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"billing\",\"suggested_reply\":\"Thanks for reaching out \u2014 we\u2019d be happy to help with enterprise pricing for expanding your rollout. We can share pricing details and discuss whether volume discounts may apply as your seat count grows.\"}"
+    },
+    {
+      "task_id": "z7d37",
+      "ticket_id": "T-015",
+      "subject": "Webhook retries",
+      "body": "I notice your webhooks retry 3 times with no jitter. On our side a 3-attempt burst overlaps with our primary DB failover window once a week and we lose the event. Could you add configurable retry spacing, or at least surface the dead-letter queue to customers?",
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the detailed feedback on webhook retry behavior. I can see how the current retry burst could cause missed events during your failover window, and I\u2019ll pass along your request for configurable retry spacing and customer-visible dead-letter queue access.",
+      "raw_output": "{\"urgency\":\"low\",\"category\":\"feature_request\",\"suggested_reply\":\"Thanks for the detailed feedback on webhook retry behavior. I can see how the current retry burst could cause missed events during your failover window, and I\u2019ll pass along your request for configurable retry spacing and customer-visible dead-letter queue access.\"}"
+    }
+  ]
+}

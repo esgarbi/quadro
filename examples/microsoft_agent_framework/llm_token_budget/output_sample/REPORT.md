@@ -1,6 +1,6 @@
 # Token-Budget Run Report
 
-*Real runs of `examples/llm_token_budget/main.py` against `gpt-5.4` at `https://api.openai.com/v1`.*
+*Real runs of `examples/microsoft_agent_framework/llm_token_budget/main.py` against `gpt-5.4` at `https://api.openai.com/v1`.*
 
 ## Two runs, one binary, two termination paths
 
@@ -150,7 +150,7 @@ consultation and halts the run when cumulative usage exceeds
 the budget.
 
 See [../README.md](../README.md) for the wiring details and
-[../../../docs/guides/sponsor-decision-matrix.md](../../../docs/guides/sponsor-decision-matrix.md)
+[../../../../docs/guides/sponsor-decision-matrix.md](../../../../docs/guides/sponsor-decision-matrix.md)
 for the full sponsor cookbook.
 
 ## Reproduce

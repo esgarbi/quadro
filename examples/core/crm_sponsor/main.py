@@ -14,7 +14,7 @@ shape is unchanged.
 
 Run::
 
-    python examples/crm_sponsor/main.py
+    python examples/core/crm_sponsor/main.py
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import logging
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 from quadro import (

@@ -16,7 +16,7 @@ shape of the Sponsor — a function that maps ticket state to
 ## What to look for when you run it
 
 ```bash
-python examples/crm_sponsor/main.py
+python examples/core/crm_sponsor/main.py
 ```
 
 - The run starts with five tasks on the board and the ticket in `open`.

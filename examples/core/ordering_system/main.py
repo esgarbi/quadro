@@ -18,8 +18,8 @@ Warehouse state (board data, not tasks):
     WH-RESERVE -- reserve inventory         {SKU: quantity}
 
 Run:
-    python examples/ordering_system.py
-    python examples/ordering_system.py --orders 5   # stop after N delivered
+    python examples/core/ordering_system/main.py
+    python examples/core/ordering_system/main.py --orders 5   # stop after N delivered
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from quadro import (
     BoardClient,

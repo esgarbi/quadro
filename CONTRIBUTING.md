@@ -44,13 +44,13 @@ These must hold in all new code and tests:
 ## Running the examples
 
 ```bash
-python examples/newsroom_cooperation.py
-python examples/ordering_system.py
+python examples/core/newsroom_cooperation/main.py
+python examples/core/ordering_system/main.py
 ```
 
 ## Board UI
 
 ```bash
-python examples/newsroom_cooperation.py
+python examples/core/newsroom_cooperation/main.py
 python -m quadro.ui newsroom.db --open
 ```

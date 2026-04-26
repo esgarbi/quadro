@@ -115,7 +115,7 @@ Three architectural gaps resolved before the ordering example was built:
 - Worker checks if task was already transitioned by `execute_fn` before calling
   `worker.post_result`
 
-**Ordering system example** (`examples/ordering_system.py`)
+**Ordering system example** (`examples/core/ordering_system/main.py`)
 - Single file, ~260 lines
 - Custom order lifecycle profile (`placed → accepted → awaiting_stock → stock_ready →
   delivering → delivered`)
@@ -273,7 +273,7 @@ UNASSIGNED → IN_PROGRESS (writer)
 - Telemetry: `_sponsor_log` (bounded recent decisions) and
   `_sponsor_status` (active lease + drain flag) persisted to the board
   and surfaced in the UI sidebar.
-- New example `examples/crm_sponsor/` — mocked CRM ticket drives a
+- New example `examples/core/crm_sponsor/` — mocked CRM ticket drives a
   runtime's lifetime end-to-end.
 
 ### Locked invariants

@@ -1,0 +1,11 @@
+# Additional dependencies for the LangChain examples (not required by quadro core).
+#
+# Install with:
+#   pip install -r examples/langchain/requirements.txt
+#
+# Pin to a tested range so a breaking upstream release does not silently break the
+# LLM examples. Bump the upper bound deliberately after validating.
+
+python-dotenv>=1.0
+langchain-core>=0.3,<0.4
+langchain-openai>=0.2,<0.3
