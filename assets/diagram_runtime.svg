@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 420">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -110 680 530">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -17,6 +17,9 @@
       .watch-box  { fill: #FAEEDA; stroke: #854F0B; }
       .watch-th   { fill: #633806; }
       .watch-ts   { fill: #854F0B; }
+      .sponsor-box { fill: #E8EDFB; stroke: #3C4EBF; }
+      .sponsor-th  { fill: #1C2A7A; }
+      .sponsor-ts  { fill: #3C4EBF; }
       @media (prefers-color-scheme: dark) {
         .th  { fill: #CECBF6; }
         .ts  { fill: #888780; }
@@ -30,9 +33,25 @@
         .watch-box  { fill: #633806; stroke: #EF9F27; }
         .watch-th   { fill: #FAC775; }
         .watch-ts   { fill: #EF9F27; }
+        .sponsor-box { fill: #1C2A7A; stroke: #9DAFEF; }
+        .sponsor-th  { fill: #CDD6F7; }
+        .sponsor-ts  { fill: #9DAFEF; }
       }
     </style>
   </defs>
+
+  <!-- Sponsor (external authority — sits ABOVE the runtime, dashed to denote
+       "not part of the reactive pattern"). Consulted by the RunLoop at
+       startup and on lease exhaustion; answer is Continue / Drain / Stop. -->
+  <rect x="240" y="-95" width="200" height="72" rx="12" stroke-width="0.5" stroke-dasharray="5 3" class="sponsor-box"/>
+  <text class="th sponsor-th" x="340" y="-70" text-anchor="middle" dominant-baseline="central">Sponsor</text>
+  <text class="ts sponsor-ts" x="340" y="-50" text-anchor="middle" dominant-baseline="central">external authority</text>
+  <text class="ts sponsor-ts" x="340" y="-34" text-anchor="middle" dominant-baseline="central">(goal &#183; deadline &#183; budget &#183; ticket)</text>
+
+  <!-- Sponsor-to-runtime: dashed indigo arrow from the Sponsor down into
+       the Chief, labeled with the three possible decisions. -->
+  <line x1="340" y1="-23" x2="340" y2="28" fill="none" stroke="#3C4EBF" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text class="ts sponsor-ts" x="350" y="2" text-anchor="start" dominant-baseline="central">Continue / Drain / Stop</text>
 
   <!-- Board -->
   <rect x="230" y="160" width="220" height="100" rx="12" stroke-width="0.5" class="board-box"/>
@@ -85,4 +104,6 @@
   <text class="ts" x="76" y="389" dominant-baseline="central">write / dispatch</text>
   <line x1="190" y1="385" x2="220" y2="385" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
   <text class="ts" x="226" y="389" dominant-baseline="central">read / signal</text>
+  <line x1="325" y1="385" x2="355" y2="385" stroke="#3C4EBF" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text class="ts" x="361" y="389" dominant-baseline="central">lifetime decision (external)</text>
 </svg>

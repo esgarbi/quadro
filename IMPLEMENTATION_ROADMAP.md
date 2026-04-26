@@ -25,6 +25,7 @@ described in `README.md` and specified in `QUADRO_SPEC.md`.
 | M4.2 | Idempotency deduplication | ✅ Complete |
 | M4.3 | Revision path integration test | ✅ Complete |
 | M5 | Board UI + observability | ✅ Complete |
+| M6 | Sponsor / Lease — runtime lifetime model | ✅ Complete |
 
 ---
 
@@ -250,6 +251,41 @@ UNASSIGNED → IN_PROGRESS (writer)
 - Dark/light theme toggle.
 - Column order resolved from: explicit arg > `_col_order` board data key >
   event history > current task statuses.
+
+---
+
+## M6 — Sponsor / Lease ✅
+
+### What was built
+
+- `quadro.sponsor` module — Sponsor protocol, Lease value type, Continue /
+  Drain / Stop decision union, SponsorContext, MeterReadings.
+- Built-in leaf sponsors: GoalSponsor, DeadlineSponsor, TickBudgetSponsor,
+  WorkerBudgetSponsor, LlmTokenBudgetSponsor, BoardEventBudgetSponsor,
+  CallableSponsor, QueueDepthSponsor.
+- External sponsors: HttpSponsor, CallbackSponsor.
+- Composers: AllOf, AnyOf, Priority. Mixed-decision truth tables in
+  `docs/design/sponsor.md`.
+- Drain semantics first-class: `Drain(deadline, reason)` with
+  configurable runtime fallback (`drain_max_duration`, default 5 min).
+- Async RunLoop driving an `asyncio` event loop internally; sync external
+  API preserved.
+- Telemetry: `_sponsor_log` (bounded recent decisions) and
+  `_sponsor_status` (active lease + drain flag) persisted to the board
+  and surfaced in the UI sidebar.
+- New example `examples/crm_sponsor/` — mocked CRM ticket drives a
+  runtime's lifetime end-to-end.
+
+### Locked invariants
+
+- `done_when` and `max_cycles` are fully removed; Sponsor is the single
+  seam for runtime lifetime decisions.
+- Sponsors are consulted at startup, on lease axis exhaustion, and once
+  more on drain completion. Not on every poll tick.
+- Sponsor exceptions never crash the RunLoop; default is fail-closed
+  (`Stop`), opt-in fail-open per Sponsor.
+- Drain refuses new task assignment but lets in-flight work reach a
+  terminal state.
 
 ---
 

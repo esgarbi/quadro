@@ -134,9 +134,21 @@ runtime.sponsor(AllOf(
 
 ### LLM cost — bound tokens
 
-`LlmTokenBudgetSponsor` caps cumulative LLM token consumption. Custom
-workers should call `ctx.report_tokens(n)` on every LLM call; MAF-backed
-workers are auto-metered.
+`LlmTokenBudgetSponsor` caps cumulative LLM token consumption. Usage
+flows into the meter via the runtime's shared `MeterBundle`, accessed as
+`runtime.meters`:
+
+- **MAF-backed workers** — pass
+  `token_reporter=runtime.meters.report_llm_tokens` to
+  `MafPipeline.llm(...)`. The adapter extracts `usage` from each MAF
+  turn (chief and worker) and reports it automatically.
+- **Custom workers** — call `runtime.meters.report_llm_tokens(n)`
+  from your `execute_fn` closure with whatever token count your
+  provider returned.
+
+See `examples/llm_token_budget/` for an end-to-end demo that pairs
+this sponsor with `QueueDepthSponsor` against a local OpenAI-compatible
+endpoint.
 
 ```python
 from quadro.sponsor import AllOf, GoalSponsor, LlmTokenBudgetSponsor

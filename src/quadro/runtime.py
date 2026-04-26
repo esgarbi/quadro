@@ -10,6 +10,7 @@ from .board.backends.base import BoardBackend
 from .board.board import QuadroBoard
 from .board.client import BoardClient
 from .runner import RunLoop
+from .sponsor.meters import MeterBundle
 from .sponsor.types import Sponsor
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ class QuadroRuntime:
         self._ombudsman_interval = 30.0
         self._drain_max_duration = timedelta(minutes=5)
         self._shutdown_hooks: list[Callable[[], None]] = []
+        self._meters: MeterBundle | None = None
 
     def _assert_not_started(self) -> None:
         if self._board is not None:
@@ -94,6 +96,31 @@ class QuadroRuntime:
     @property
     def network(self) -> Any:
         return self._network
+
+    @property
+    def meters(self) -> MeterBundle:
+        """Shared :class:`~quadro.sponsor.meters.MeterBundle` for this runtime.
+
+        Lazily constructed on first read. Pass
+        ``runtime.meters.report_llm_tokens`` to LLM adapters (e.g. the MAF
+        integration's ``token_reporter`` kwarg) so that
+        :class:`~quadro.sponsor.LlmTokenBudgetSponsor` sees real usage.
+        """
+        if self._meters is None:
+            self._meters = MeterBundle()
+        return self._meters
+
+    def with_meters(self, meters: MeterBundle) -> QuadroRuntime:
+        """Inject a pre-built ``MeterBundle``.
+
+        Advanced: use when an adapter or test harness needs to share a
+        bundle across runtimes, or when the bundle must be constructed
+        before the runtime (e.g. to hand it to a long-lived MAF client
+        factory). Must be called before :meth:`run`.
+        """
+        self._assert_not_started()
+        self._meters = meters
+        return self
 
     # ── Lifetime configuration ────────────────────────────────────────────────
 
@@ -156,7 +183,7 @@ class QuadroRuntime:
             )
 
         builder = (
-            RunLoop(self.board, built_pipeline.chief)
+            RunLoop(self.board, built_pipeline.chief, meters=self.meters)
             .sponsor(self._sponsor)
             .poll_every(self._poll_interval)
             .ombudsman_every(self._ombudsman_interval)

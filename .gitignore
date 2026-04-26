@@ -42,6 +42,8 @@ wheels/
 # Runtime-generated example output (curated samples live in output_sample/)
 examples/microsoft_agent_framework/newsroom/output/
 examples/microsoft_agent_framework/ordering_system/output/
+examples/llm_token_budget/output/
+examples/llm_token_budget/triage.db
 
 # OS
 .DS_Store

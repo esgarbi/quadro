@@ -91,7 +91,11 @@ class RunLoop:
     """
 
     def __init__(
-        self, board_or_client: BoardClient | QuadroBoard, chief: ChiefAgent
+        self,
+        board_or_client: BoardClient | QuadroBoard,
+        chief: ChiefAgent,
+        *,
+        meters: MeterBundle | None = None,
     ) -> None:
         from .board.board import QuadroBoard as _QuadroBoard
 
@@ -110,7 +114,7 @@ class RunLoop:
         self._drain_max_duration = _DEFAULT_DRAIN_MAX_DURATION
         self._ombudsman_instance = None
 
-        self._meters = MeterBundle()
+        self._meters = meters if meters is not None else MeterBundle()
         self._lease_history: list[Lease] = []
 
     # ── Builder methods ───────────────────────────────────────────────────────

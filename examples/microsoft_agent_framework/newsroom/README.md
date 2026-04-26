@@ -463,7 +463,8 @@ batches at random intervals until the target is reached.
 | Artifact | Description |
 |----------|-------------|
 | **Console** | Per-cycle progress (published / in-flight / pending), final summary with article list and task states |
-| **`output/`** | One `.md` file per published article + one `.json` flight plan per article (brief, research, article, review decision) |
+| **`output/`** | One `.md` file per published article + one `.json` flight plan per article (`brief`, `research`, `article_md`, `review_decision`, `tokens`). The `tokens` section reports per-stage LLM usage (`by_stage` for ideation/research/writing/review, `total`, the `model` that produced it, and a UTC `measured_at`). Counts accumulate across retries, so a re-written draft's final total includes both attempts. |
+| **`output_sample/`** | A small committed snapshot of `output/` from a real `gpt-5.4` run, checked in so GitHub viewers can inspect a finished article (including the new `tokens` section) without running the pipeline themselves. |
 | **`newsroom.db`** | SQLite board state with full event audit trail |
 | **Exit code** | `0` if target reached, `1` otherwise |
 

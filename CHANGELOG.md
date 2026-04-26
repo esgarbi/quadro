@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 — 2026-04-25
 
 ### Breaking changes
 
@@ -50,6 +50,10 @@
   fallback deadline used when a Sponsor returns `Drain(deadline=None)`.
 - New example `examples/crm_sponsor/` — mocked CRM ticket drives a
   runtime's lifetime, showing the continuity story end-to-end.
+- `examples/llm_token_budget/` — MAF-backed ticket triage gated by an
+  `AllOf(QueueDepthSponsor, LlmTokenBudgetSponsor, DeadlineSponsor)`
+  composition. Includes a sample report from a real run at two budget
+  ceilings. The headline demonstration of token-cost governance.
 
 ### Documentation
 
@@ -57,4 +61,3 @@
   answers.
 - `docs/guides/sponsor-authoring.md` — how to write a Sponsor.
 - `docs/guides/sponsor-decision-matrix.md` — "I want X, use Y" lookup.
-- `docs/guides/sponsor-migration.md` — step-by-step migration guide.

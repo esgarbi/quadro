@@ -170,6 +170,102 @@ def _clean_llm_output(text: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  Token usage extraction
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# MAF's ``wf.run(..., stream=False)`` returns a list of ``WorkflowEvent``
+# objects, and the chat response (with ``usage``) can surface on several
+# shapes depending on the agent-framework version and the underlying
+# client. The helper below probes the most common paths and silently
+# returns 0 when nothing is found — a crash here would sink a worker over
+# a telemetry field, which is never the right trade-off.
+
+
+def _usage_field_as_int(obj: Any, *attrs: str) -> int:
+    """Read the first integer-valued attribute/dict key from ``attrs`` off ``obj``."""
+    if obj is None:
+        return 0
+    for name in attrs:
+        value = getattr(obj, name, None)
+        if value is None and isinstance(obj, dict):
+            value = obj.get(name)
+        if isinstance(value, int):
+            return value
+    return 0
+
+
+def _find_usage_payload(event: Any) -> Any | None:
+    """Locate a ``usage``-like payload on a MAF event, if any.
+
+    Tries a short list of plausible paths in order of likelihood. The
+    first non-None hit wins.
+    """
+    accessors = (
+        lambda e: getattr(e, "usage_details", None),
+        lambda e: getattr(e, "usage", None),
+        lambda e: getattr(getattr(e, "data", None), "usage_details", None),
+        lambda e: getattr(getattr(e, "data", None), "usage", None),
+        lambda e: getattr(getattr(e, "response", None), "usage", None),
+        lambda e: getattr(
+            getattr(getattr(e, "data", None), "raw_representation", None),
+            "usage",
+            None,
+        ),
+    )
+    for accessor in accessors:
+        try:
+            payload = accessor(event)
+        except Exception:  # noqa: BLE001
+            payload = None
+        if payload is not None:
+            return payload
+    return None
+
+
+def _extract_token_usage(events: Any) -> int:
+    """Best-effort sum of prompt + completion tokens across all events.
+
+    Prefers explicit ``prompt_tokens`` / ``completion_tokens`` (and their
+    openai-python cousins ``input_tokens`` / ``output_tokens``) and falls
+    back to ``total_tokens`` when only an aggregate is reported.
+    """
+    total = 0
+    for event in events or []:
+        usage = _find_usage_payload(event)
+        if usage is None:
+            continue
+        prompt = _usage_field_as_int(
+            usage, "prompt_tokens", "input_tokens", "input_token_count"
+        )
+        completion = _usage_field_as_int(
+            usage, "completion_tokens", "output_tokens", "output_token_count"
+        )
+        if prompt or completion:
+            total += prompt + completion
+        else:
+            total += _usage_field_as_int(usage, "total_tokens")
+    return total
+
+
+def _report_tokens(
+    reporter: Callable[[int], None] | None, events: Any
+) -> None:
+    """Call ``reporter`` with the extracted token total, swallowing errors."""
+    if reporter is None:
+        return
+    try:
+        tokens = _extract_token_usage(events)
+    except Exception:  # noqa: BLE001
+        tokens = 0
+    if tokens <= 0:
+        return
+    try:
+        reporter(tokens)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("token_reporter raised; ignoring: %s", exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Internal MAF workflow runners
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -180,6 +276,7 @@ async def _run_single_agent(
     client_factory: Callable,
     default_options: dict | None = None,
     executor_prefix: str = "_agent",
+    token_reporter: Callable[[int], None] | None = None,
 ) -> str:
     _ensure_maf()
     uid = uuid4().hex[:8]
@@ -202,6 +299,8 @@ async def _run_single_agent(
     wf = WorkflowBuilder(start_executor=_start).add_edge(_start, agent).build()
     events = await wf.run(message=user_message, stream=False)
 
+    _report_tokens(token_reporter, events)
+
     for event in events:
         if isinstance(event, WorkflowEvent) and event.type == "output":
             return _clean_llm_output(event.data.text)
@@ -215,6 +314,7 @@ async def _run_chief_workflow(
     tools: list,
     client_factory: Callable,
     agent_name_prefix: str = "chief",
+    token_reporter: Callable[[int], None] | None = None,
 ) -> str | None:
     _ensure_maf()
     uid = uuid4().hex[:8]
@@ -242,6 +342,9 @@ async def _run_chief_workflow(
         .build()
     )
     events = await wf.run(message=board_summary, stream=False)
+
+    _report_tokens(token_reporter, events)
+
     for event in events:
         if isinstance(event, WorkflowEvent) and event.type == "output":
             return _clean_llm_output(event.data.text)
@@ -260,6 +363,7 @@ async def llm_call(
     schema: type | None = None,
     client_factory: Callable | None = None,
     executor_prefix: str = "llm_call",
+    token_reporter: Callable[[int], None] | None = None,
 ) -> Any:
     """One-line LLM invocation with prompt loading and schema validation.
 
@@ -277,6 +381,12 @@ async def llm_call(
         the module-level default (env vars or :func:`configure`).
     executor_prefix:
         Short prefix for internal MAF executor/agent IDs.
+    token_reporter:
+        Optional callable invoked with the sum of prompt + completion tokens
+        after the call completes. Pass ``runtime.meters.report_llm_tokens``
+        to feed :class:`~quadro.sponsor.LlmTokenBudgetSponsor`. Errors in
+        the reporter are logged and swallowed — telemetry never fails a
+        worker.
 
     Returns
     -------
@@ -311,6 +421,7 @@ async def llm_call(
         client_factory=factory,
         default_options=opts,
         executor_prefix=executor_prefix,
+        token_reporter=token_reporter,
     )
 
     if schema is not None:
@@ -408,6 +519,7 @@ class MafPipeline(Pipeline):
         _ensure_maf()
         super().__init__(board)
         self._client_factory: Callable | None = None
+        self._token_reporter: Callable[[int], None] | None = None
 
     def llm(
         self,
@@ -419,8 +531,18 @@ class MafPipeline(Pipeline):
         model_env: str = "OPENAI_MODEL_ID",
         base_url: str | None = None,
         base_url_env: str = "OPENAI_BASE_URL",
+        token_reporter: Callable[[int], None] | None = None,
     ) -> MafPipeline:
-        """Configure the LLM client for all stages and the chief."""
+        """Configure the LLM client for all stages and the chief.
+
+        Passing ``token_reporter=runtime.meters.report_llm_tokens`` feeds
+        usage from every MAF call (chief and auto-generated stage workers)
+        into the shared :class:`~quadro.sponsor.meters.MeterBundle`, so
+        :class:`~quadro.sponsor.LlmTokenBudgetSponsor` can cap cumulative
+        tokens across the run.
+        """
+        self._token_reporter = token_reporter
+
         if client_factory is not None:
             self._client_factory = client_factory
             return self
@@ -478,6 +600,7 @@ class MafPipeline(Pipeline):
             tools=tools,
             client_factory=factory,
             agent_name_prefix=self._chief_name_prefix,
+            token_reporter=self._token_reporter,
         )
 
     def _make_auto_execute_fn(self, spec: StageSpec) -> Callable:
@@ -489,6 +612,7 @@ class MafPipeline(Pipeline):
             )
 
         client_factory = self._client_factory or _get_client_factory()
+        token_reporter = self._token_reporter
 
         prompt_text: str | None = None
         if isinstance(spec.prompt, Path):
@@ -528,6 +652,7 @@ class MafPipeline(Pipeline):
                 client_factory=client_factory,
                 default_options=opts,
                 executor_prefix=cap,
+                token_reporter=token_reporter,
             )
 
             output_json = raw

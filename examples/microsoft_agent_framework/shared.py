@@ -87,6 +87,7 @@ async def run_single_agent(
     client_factory: Callable[[], OpenAIChatClient] = create_llm_client,
     default_options: dict | None = None,
     executor_prefix: str = "_agent",
+    token_reporter: Callable[[int], None] | None = None,
 ) -> str:
     """Run a single-agent workflow and return the final text output.
 
@@ -104,7 +105,13 @@ async def run_single_agent(
         ``{"response_format": ...}``).
     executor_prefix:
         Short prefix used in the executor/agent id for log readability.
+    token_reporter:
+        Optional callable invoked with the sum of prompt + completion
+        tokens after the call completes. Errors in the reporter are
+        swallowed — telemetry never fails a workflow.
     """
+    from quadro.integrations.maf import _report_tokens  # reuse framework helper
+
     uid = uuid4().hex[:8]
 
     @executor(id=f"_{executor_prefix}_{uid}")
@@ -128,6 +135,8 @@ async def run_single_agent(
     wf = WorkflowBuilder(start_executor=_start).add_edge(_start, agent).build()
     events = await wf.run(message=user_message, stream=False)
 
+    _report_tokens(token_reporter, events)
+
     for event in events:
         if isinstance(event, WorkflowEvent) and event.type == "output":
             return clean_llm_output(event.data.text)
@@ -144,12 +153,17 @@ async def run_chief_workflow(
     tools: list,
     client_factory: Callable[[], OpenAIChatClient] = create_llm_client,
     agent_name_prefix: str = "chief",
+    token_reporter: Callable[[int], None] | None = None,
 ) -> str | None:
     """Run the chief's single-turn LLM workflow and return output text (if any).
 
     Encapsulates the repeated executor→agent→workflow→run pattern used by
-    every ``build_chief_policy()`` implementation.
+    every ``build_chief_policy()`` implementation. ``token_reporter``, if
+    supplied, is invoked with prompt+completion tokens once the call
+    completes (errors in the reporter are swallowed).
     """
+    from quadro.integrations.maf import _report_tokens
+
     uid = uuid4().hex[:8]
 
     @executor(id=f"_chief_{uid}")
@@ -176,6 +190,9 @@ async def run_chief_workflow(
     )
 
     events = await wf.run(message=board_summary, stream=False)
+
+    _report_tokens(token_reporter, events)
+
     for event in events:
         if isinstance(event, WorkflowEvent) and event.type == "output":
             return clean_llm_output(event.data.text)

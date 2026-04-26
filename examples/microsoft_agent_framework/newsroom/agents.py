@@ -13,12 +13,14 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 
 from schemas import (
@@ -48,6 +50,59 @@ _client = create_llm_client
 
 def _prompt(name: str) -> str:
     return load_prompt(PROMPTS_DIR, name)
+
+
+# ── Per-task token accounting ──────────────────────────────────────────────────
+#
+# Each stage's execute_fn accumulates the LLM tokens it spent into a
+# stage-local counter (via the ``token_reporter`` hook in
+# ``shared.run_single_agent``). At end-of-stage it persists the delta onto
+# a per-task board data key ``_tokens:<task_id>``. ``run_review`` reads
+# that record when it publishes the article JSON and surfaces the
+# per-stage + total breakdown in the output file. Cumulative semantics:
+# if a draft is rejected and re-written, later stage runs add onto the
+# same bucket, so the final JSON reflects the true cost (including any
+# rewrites).
+
+_TOKENS_KEY_PREFIX = "_tokens:"
+
+
+def _bump_stage_tokens(
+    board_fn: Callable[[str, dict], dict],
+    task_id: str,
+    stage: str,
+    delta: int,
+) -> None:
+    """Merge-add ``delta`` tokens onto ``_tokens:<task_id>.by_stage[stage]``."""
+    if delta <= 0:
+        return
+    key = f"{_TOKENS_KEY_PREFIX}{task_id}"
+    try:
+        existing = (board_fn("board.get_data", {"key": key}) or {}).get("value") or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("tokens: failed to read %s: %s", key, exc)
+        existing = {}
+    by_stage = dict(existing.get("by_stage") or {})
+    by_stage[stage] = int(by_stage.get(stage, 0)) + int(delta)
+    try:
+        board_fn("board.put_data", {"key": key, "value": {"by_stage": by_stage}})
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("tokens: failed to write %s: %s", key, exc)
+
+
+def _make_stage_reporter() -> tuple[Callable[[int], None], Callable[[], int]]:
+    """Return ``(reporter, read_total)`` — a closure-backed token accumulator."""
+    total = 0
+
+    def reporter(n: int) -> None:
+        nonlocal total
+        if n > 0:
+            total += int(n)
+
+    def read_total() -> int:
+        return total
+
+    return reporter, read_total
 
 
 # ── PubMed helper ──────────────────────────────────────────────────────────────
@@ -126,6 +181,8 @@ async def run_ideation(context: dict, board_fn: Callable[[str, dict], dict]) -> 
 
     topic_hint = task.get("label", "health and wellbeing topic")
 
+    report, read_total = _make_stage_reporter()
+
     headline_raw = await run_single_agent(
         instructions=f"""You are a senior editorial writer for a health publication.
 Generate one compelling article headline for this topic hint.
@@ -137,6 +194,7 @@ No markdown, no preamble.""",
         user_message=f"Topic: {topic_hint}",
         default_options={"response_format": {"type": "json_object"}},
         executor_prefix="ideation",
+        token_reporter=report,
     )
 
     brief_raw = await run_single_agent(
@@ -144,6 +202,7 @@ No markdown, no preamble.""",
         user_message=headline_raw,
         default_options={"response_format": ArticleBrief},
         executor_prefix="ideation",
+        token_reporter=report,
     )
 
     try:
@@ -168,6 +227,7 @@ No markdown, no preamble.""",
             },
         )
 
+    _bump_stage_tokens(board_fn, task["task_id"], "ideation", read_total())
     return "Ideation complete."
 
 
@@ -184,11 +244,13 @@ async def run_research(context: dict, board_fn: Callable[[str, dict], dict]) -> 
         title = task.get("label", "health topic")
         keywords = title
 
+    report, read_total = _make_stage_reporter()
     strategy_raw = await run_single_agent(
         instructions=_prompt("research"),
         user_message=f"Article title: {title}\nKeywords: {keywords}",
         default_options={"response_format": {"type": "json_object"}},
         executor_prefix="research",
+        token_reporter=report,
     )
 
     try:
@@ -249,6 +311,7 @@ async def run_research(context: dict, board_fn: Callable[[str, dict], dict]) -> 
             },
         },
     )
+    _bump_stage_tokens(board_fn, task["task_id"], "research", read_total())
     return "Research complete."
 
 
@@ -273,10 +336,12 @@ async def run_writing(context: dict, board_fn: Callable[[str, dict], dict]) -> s
         f"## Research Citations\n{citations_block or '(none)'}"
     )
 
+    report, read_total = _make_stage_reporter()
     article_md = await run_single_agent(
         instructions=_prompt("writing"),
         user_message=writing_input,
         executor_prefix="writing",
+        token_reporter=report,
     )
 
     board_fn(
@@ -291,6 +356,7 @@ async def run_writing(context: dict, board_fn: Callable[[str, dict], dict]) -> s
             },
         },
     )
+    _bump_stage_tokens(board_fn, task["task_id"], "writing", read_total())
     return "Writing complete."
 
 
@@ -303,14 +369,21 @@ async def run_review(context: dict, board_fn: Callable[[str, dict], dict]) -> st
     if not article_md:
         return "No draft available."
 
+    report, read_total = _make_stage_reporter()
     decision_raw = await run_single_agent(
         instructions=_prompt("review"),
         user_message=f"## Article Draft\n\n{article_md}",
         default_options={"response_format": ApprovedOutput},
         executor_prefix="review",
+        token_reporter=report,
     )
 
     decision = ApprovedOutput.model_validate_json(decision_raw)
+
+    # Record the review stage's tokens first so the per-article JSON
+    # below sees its own cost (and so rejected drafts still accrue the
+    # rewriter-visible total for the eventual approval).
+    _bump_stage_tokens(board_fn, task["task_id"], "review", read_total())
 
     if decision.approved:
         ARTICLES_DIR.mkdir(parents=True, exist_ok=True)
@@ -329,13 +402,16 @@ async def run_review(context: dict, board_fn: Callable[[str, dict], dict]) -> st
             "research": json.loads(output.get("research", "{}")),
             "article_md": article_md,
             "review_decision": decision.model_dump(),
+            "tokens": _build_tokens_section(board_fn, task["task_id"]),
         }
         import json as _json
 
         (ARTICLES_DIR / f"{slug}.json").write_text(
             _json.dumps(flight, indent=4), encoding="utf-8"
         )
-        logger.info("Published: %s", slug)
+        logger.info(
+            "Published: %s  (tokens: %s)", slug, flight["tokens"].get("total", 0)
+        )
 
         board_fn(
             "board.update_task",
@@ -356,6 +432,27 @@ async def run_review(context: dict, board_fn: Callable[[str, dict], dict]) -> st
         )
 
     return decision.reason
+
+
+def _build_tokens_section(
+    board_fn: Callable[[str, dict], dict], task_id: str
+) -> dict:
+    """Read cumulative per-stage tokens and build the output JSON section."""
+    try:
+        raw = board_fn(
+            "board.get_data", {"key": f"{_TOKENS_KEY_PREFIX}{task_id}"}
+        )
+        existing = (raw or {}).get("value") or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("tokens: failed to read final tokens for %s: %s", task_id, exc)
+        existing = {}
+    by_stage = {k: int(v) for k, v in (existing.get("by_stage") or {}).items()}
+    return {
+        "by_stage": by_stage,
+        "total": sum(by_stage.values()),
+        "model": os.environ.get("OPENAI_MODEL_ID", "<unset>"),
+        "measured_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
 
 
 # ── Chief policy ───────────────────────────────────────────────────────────────

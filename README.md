@@ -60,6 +60,14 @@ We achieve this through three core components:
 2. **The Chief:** A coordinator that reacts to changes in that state and dispatches the next action.
 3. **Governed State Machine:** A strict ruleset that enforces which transitions are legal.
 
+These three components are the Reactive Governed Blackboard. Lifetime —
+*should the runtime still be working at all?* — is a separate concern,
+governed by an **external signal** called the **Sponsor**. The Sponsor sits
+outside the reactive pattern; it answers to whatever authority makes sense
+for the deployment (a goal predicate, a deadline, a token budget, an open
+CRM ticket, an approving HTTP endpoint). See
+[Lifetime — the Sponsor](#lifetime--the-sponsor) below.
+
 Quadro is a reference implementation of the Reactive Governed Blackboard pattern -- the first piece of what is intended to grow into a broader pattern language for governed multi-agent coordination.
 
 ### Activity is not progress
@@ -268,10 +276,12 @@ degrade the coordinator's decision quality. The Chief always sees a clean board.
 Workers always see a fully hydrated, deterministic task.
 
 How the components relate at runtime — the Board at centre, the Chief reacting to it,
-Workers reading and writing tasks, the Ombudsman monitoring heartbeats:
+Workers reading and writing tasks, the Ombudsman monitoring heartbeats, and the
+Sponsor governing runtime lifetime from outside the pattern (dashed, so the visual
+separation between coordination and lifetime is clear):
 
 <p align="center">
-  <img src="assets/diagram_runtime.svg" alt="Runtime diagram: Board, Chief, Workers, Ombudsman" width="680">
+  <img src="assets/diagram_runtime.svg" alt="Runtime diagram: the Sponsor (external authority) above, issuing Continue/Drain/Stop into a cluster of Board, Chief, Workers, and Ombudsman" width="680">
 </p>
 
 ---

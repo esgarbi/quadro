@@ -1,4 +1,4 @@
-# Quadro Specification — v0.1
+# Quadro Specification — v0.2
 
 This document is the normative specification for the Quadro coordination layer.
 The reference implementation in `src/quadro/` is the authoritative realisation of
@@ -8,6 +8,25 @@ behaviour and the implementation should be corrected.
 Read `README.md` for motivation and architecture overview. Read
 `IMPLEMENTATION_ROADMAP.md` for milestone status. This document specifies the
 contracts.
+
+---
+
+## Scope
+
+This specification covers the **coordination contract** of Quadro: the
+Board, the Chief, Workers, the Ombudsman, lifecycle profiles, the event
+taxonomy, and the architecture invariants that hold them together.
+
+It does **not** cover **runtime lifetime** — the question of whether
+the runtime should still be running. Lifetime is governed by a separate,
+external signal called a **Sponsor**, specified in
+`docs/design/sponsor.md`. The Sponsor is intentionally outside the
+coordination contract: it is a deployment concern, not a pattern
+primitive.
+
+Changes to the coordination contract follow the versioning rules in
+section 11. Changes to the Sponsor contract are versioned independently
+in its own design document.
 
 ---
 
@@ -577,9 +596,14 @@ implementation.
 
 ## 11. Versioning
 
-This document covers Quadro v0.1. Changes that add new intents, new event types,
+This document covers Quadro v0.2. Changes that add new intents, new event types,
 new required fields, or that alter invariant behaviour require a version increment and
 a corresponding entry in `CHANGELOG.md`.
 
 Additive changes that do not alter existing contracts (new optional fields, new
 backend implementations, new examples) may be made without a version increment.
+
+The **Sponsor** contract (see `docs/design/sponsor.md`) is versioned
+independently of this specification. The coordination contract here and
+the Sponsor contract there evolve on their own cadences — see the
+[Scope](#scope) section above for the separation of concerns.

@@ -111,8 +111,17 @@ class LlmTokenMeter:
     """Accumulates LLM tokens reported by adapters / workers.
 
     Consumers call :meth:`report` with the token delta for each LLM call.
-    The MAF adapter wires this up automatically; custom workers can call
-    ``ctx.report_tokens(n)`` via the context passed by the runtime.
+
+    Wire-up patterns:
+
+    - **MAF integration** — pass
+      ``token_reporter=runtime.meters.report_llm_tokens`` to
+      :meth:`quadro.integrations.maf.MafPipeline.llm` (or the standalone
+      :func:`quadro.integrations.maf.llm_call`). Usage is extracted from
+      the MAF event stream after each turn.
+    - **Custom workers** — call ``runtime.meters.report_llm_tokens(n)``
+      directly from your ``execute_fn`` closure, passing whatever token
+      count your provider returns.
     """
 
     def __init__(self) -> None:
