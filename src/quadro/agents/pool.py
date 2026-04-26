@@ -3,9 +3,13 @@ from __future__ import annotations
 import logging
 import warnings
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from ..board.client import BoardClient
 from .worker import WorkerAgent
+
+if TYPE_CHECKING:
+    from ..ombudsman import Ombudsman
 
 logger = logging.getLogger(__name__)
 

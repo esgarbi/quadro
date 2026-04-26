@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -8,14 +8,12 @@ from quadro import BoardClient, ChiefAgent, LocalA2ANetwork, QuadroBoard, RunLoo
 from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.sponsor import (
     AllOf,
-    AlwaysOnSponsor,
     AlwaysStopSponsor,
     Continue,
     Drain,
     GoalSponsor,
     Lease,
     ScriptedSponsor,
-    Stop,
     TickBudgetSponsor,
 )
 
@@ -136,12 +134,7 @@ def test_run_loop_ombudsman_fires_chief_nudge() -> None:
 def test_run_loop_tick_budget_stops_loop() -> None:
     _, _, bc, chief, board = _make_env()
 
-    (
-        RunLoop(board, chief)
-        .sponsor(TickBudgetSponsor(3))
-        .poll_every(0.0)
-        .run()
-    )
+    (RunLoop(board, chief).sponsor(TickBudgetSponsor(3)).poll_every(0.0).run())
 
 
 # ── 7. Drain lifecycle: no active tasks -> auto Stop ──────────────────────────
@@ -156,12 +149,7 @@ def test_run_loop_drain_stops_when_no_active_tasks() -> None:
     ]
     sponsor = ScriptedSponsor(script)
 
-    state = (
-        RunLoop(board, chief)
-        .sponsor(sponsor)
-        .poll_every(0.0)
-        .run()
-    )
+    state = RunLoop(board, chief).sponsor(sponsor).poll_every(0.0).run()
     assert "tasks" in state
 
 
@@ -178,12 +166,7 @@ def test_run_loop_sponsor_exception_is_treated_as_stop() -> None:
         def propose_lease(self, ctx, prior):  # noqa: D401
             raise RuntimeError("kaboom")
 
-    state = (
-        RunLoop(board, chief)
-        .sponsor(_Exploder())
-        .poll_every(0.0)
-        .run()
-    )
+    state = RunLoop(board, chief).sponsor(_Exploder()).poll_every(0.0).run()
     assert "tasks" in state
 
 
@@ -217,12 +200,7 @@ def test_run_loop_publishes_drain_flag() -> None:
     ]
     sponsor = ScriptedSponsor(script)
 
-    (
-        RunLoop(board, chief)
-        .sponsor(sponsor)
-        .poll_every(0.0)
-        .run()
-    )
+    (RunLoop(board, chief).sponsor(sponsor).poll_every(0.0).run())
 
     from quadro.dispatch import DRAIN_FLAG_KEY
 

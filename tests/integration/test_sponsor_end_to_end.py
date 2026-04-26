@@ -7,18 +7,11 @@ events, sponsor decisions, drain coordination, shutdown.
 
 from __future__ import annotations
 
-import tempfile
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pytest
 
 from quadro import (
-    BoardClient,
     ChiefAgent,
-    LifecycleBuilder,
-    LocalA2ANetwork,
-    QuadroBoard,
     QuadroRuntime,
     WorkerPool,
 )
@@ -30,12 +23,7 @@ from quadro.sponsor import (
     Drain,
     GoalSponsor,
     Lease,
-    Priority,
-    QueueDepthSponsor,
     ScriptedSponsor,
-    Sponsor,
-    SponsorContext,
-    Stop,
     TickBudgetSponsor,
 )
 
@@ -92,10 +80,9 @@ def test_end_to_end_goal_plus_safety_cap(tmp_path: Path) -> None:
         runtime.sponsor(
             AllOf(
                 GoalSponsor(
-                    lambda s: sum(
-                        1 for t in s["tasks"] if t["status"] == "COMPLETE"
+                    lambda s: (
+                        sum(1 for t in s["tasks"] if t["status"] == "COMPLETE") >= 3
                     )
-                    >= 3
                 ),
                 TickBudgetSponsor(200),
                 DeadlineSponsor.from_now(seconds=10),
@@ -150,8 +137,10 @@ def test_end_to_end_sponsor_log_records_lease_chain(tmp_path: Path) -> None:
     runtime.sponsor(
         AllOf(
             GoalSponsor(
-                lambda s: all(t["status"] == "COMPLETE" for t in s["tasks"])
-                and bool(s["tasks"])
+                lambda s: (
+                    all(t["status"] == "COMPLETE" for t in s["tasks"])
+                    and bool(s["tasks"])
+                )
             ),
             TickBudgetSponsor(50),
         )

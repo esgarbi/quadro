@@ -8,10 +8,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
 
 from quadro import (
-    BoardClient,
     ChiefAgent,
     LocalA2ANetwork,
     QuadroBoard,
@@ -20,14 +18,9 @@ from quadro import (
 from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.sponsor import (
     AllOf,
-    AlwaysOnSponsor,
     Continue,
     DeadlineSponsor,
-    Drain,
-    GoalSponsor,
     Lease,
-    ScriptedSponsor,
-    Sponsor,
     SponsorContext,
     Stop,
     TickBudgetSponsor,
@@ -84,9 +77,7 @@ def test_raising_sponsor_fails_closed() -> None:
             raise RuntimeError("kaboom")
 
     bc, chief, board = _make_env()
-    final = (
-        RunLoop(board, chief).sponsor(_Exploder()).poll_every(0.0).run()
-    )
+    final = RunLoop(board, chief).sponsor(_Exploder()).poll_every(0.0).run()
     log = bc.full_state()["data"].get("_sponsor_log") or []
     assert any(
         entry["decision"] == "stop" and "sponsor_error" in entry["reason"]
@@ -115,12 +106,7 @@ def test_raising_sponsor_with_fail_open_renews_prior() -> None:
             return Stop(reason="done")
 
     bc, chief, board = _make_env()
-    (
-        RunLoop(board, chief)
-        .sponsor(_FlakyThenBoom())
-        .poll_every(0.0)
-        .run()
-    )
+    (RunLoop(board, chief).sponsor(_FlakyThenBoom()).poll_every(0.0).run())
     log = bc.full_state()["data"].get("_sponsor_log") or []
     # We should see at least one Continue (the fail-open renewal) between the
     # initial Continue and the final Stop.
@@ -147,9 +133,7 @@ def test_deadline_sponsor_accepts_naive_datetime_as_utc() -> None:
     ctx = SponsorContext(
         state={"tasks": [], "agents": [], "data": {}},
         chief_telemetry={},
-        meters=__import__(
-            "quadro.sponsor", fromlist=["MeterReadings"]
-        ).MeterReadings(),
+        meters=__import__("quadro.sponsor", fromlist=["MeterReadings"]).MeterReadings(),
         lease_history=(),
         now=datetime(2029, 12, 1, tzinfo=timezone.utc),
     )

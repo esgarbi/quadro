@@ -48,6 +48,7 @@ __all__ = [
     "DefaultTaskIdProvider",
     "LifecycleBuilder",
     "LocalA2ANetwork",
+    "NotFoundError",
     "Ombudsman",
     "Pipeline",
     "QuadroBoard",

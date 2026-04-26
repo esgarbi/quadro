@@ -11,17 +11,18 @@ Each example imports from this module instead of duplicating the code.
 from __future__ import annotations
 
 import logging
-import re
 import os
+import re
 from collections.abc import Callable
 from pathlib import Path
 from uuid import uuid4
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-from agent_framework import (
+from agent_framework import (  # noqa: E402  (must import after load_dotenv so env vars are populated)
     AgentExecutorRequest,
     Message,
     WorkflowBuilder,
@@ -29,7 +30,7 @@ from agent_framework import (
     WorkflowEvent,
     executor,
 )
-from agent_framework.openai import OpenAIChatClient
+from agent_framework.openai import OpenAIChatClient  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,7 @@ async def run_chief_workflow(
 # Tools-layer helpers  (re-exported from quadro.dispatch)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from quadro.dispatch import (  # noqa: E402
+from quadro.dispatch import (  # noqa: E402  (must import after load_dotenv so env vars are populated)
     ACKNOWLEDGED_KEY,
     acknowledge_task,
     dispatch_batch,
@@ -193,3 +194,20 @@ from quadro.dispatch import (  # noqa: E402
     fire_worker,
     get_acknowledged,
 )
+
+# Listing the public surface explicitly tells ruff these re-exports are
+# intentional (the sibling newsroom/ordering_system packages import them via
+# ``from shared import ...``).
+__all__ = [
+    "ACKNOWLEDGED_KEY",
+    "acknowledge_task",
+    "clean_llm_output",
+    "create_llm_client",
+    "dispatch_batch",
+    "find_idle_worker",
+    "fire_worker",
+    "get_acknowledged",
+    "load_prompt",
+    "run_chief_workflow",
+    "run_single_agent",
+]

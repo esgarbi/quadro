@@ -22,7 +22,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install .[dev]
+        run: pip install -e .[dev]
 
-      - name: Run tests
-        run: python -m pytest
+      - name: Run tests with coverage
+        # Coverage floor is today's measured baseline (77%) minus a small safety
+        # margin for environment variance. Ratchet upward in follow-up PRs — never
+        # lower the floor.
+        run: pytest --cov=quadro --cov-report=term-missing --cov-fail-under=75
+
+      - name: Type check (advisory)
+        # mypy is advisory for now so we can adopt it incrementally without
+        # blocking merges on legacy typing gaps. Quadro ships py.typed so the
+        # intent is to ratchet this into a hard gate over time.
+        run: mypy src/quadro || true

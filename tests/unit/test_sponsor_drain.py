@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
 
-import pytest
 
 from quadro import (
     BoardClient,
     ChiefAgent,
-    LifecycleBuilder,
     LocalA2ANetwork,
     QuadroBoard,
     RunLoop,
@@ -19,19 +16,16 @@ from quadro import (
 from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.dispatch import DRAIN_FLAG_KEY
 from quadro.sponsor import (
-    AllOf,
-    AlwaysStopSponsor,
     Continue,
     Drain,
-    GoalSponsor,
     Lease,
     ScriptedSponsor,
-    Stop,
-    TickBudgetSponsor,
 )
 
 
-def _make_env(profile: str = "fast") -> tuple[LocalA2ANetwork, BoardClient, ChiefAgent, QuadroBoard]:
+def _make_env(
+    profile: str = "fast",
+) -> tuple[LocalA2ANetwork, BoardClient, ChiefAgent, QuadroBoard]:
     network = LocalA2ANetwork()
     board = QuadroBoard(
         SqliteBoardBackend(":memory:"),
@@ -71,9 +65,7 @@ def test_chief_draining_blocks_new_assignments() -> None:
     bc.post_task("work", "Task B")
     chief.wake(trigger="seed")
     state = bc.full_state()
-    pending = [
-        t for t in state["tasks"] if t["label"] == "Task B"
-    ][0]
+    pending = [t for t in state["tasks"] if t["label"] == "Task B"][0]
     assert pending["status"] == "UNASSIGNED"
 
 
@@ -121,12 +113,7 @@ def test_run_loop_drain_with_empty_board_stops_immediately() -> None:
         Continue(lease=Lease(ticks=1)),
         Drain(deadline=None, reason="empty_queue"),
     ]
-    state = (
-        RunLoop(board, chief)
-        .sponsor(ScriptedSponsor(script))
-        .poll_every(0.0)
-        .run()
-    )
+    state = RunLoop(board, chief).sponsor(ScriptedSponsor(script)).poll_every(0.0).run()
     assert "tasks" in state
     # Drain flag should be cleared after the run completes.
     assert bc.get_data(DRAIN_FLAG_KEY) is False
@@ -163,12 +150,7 @@ def test_run_loop_drain_deadline_forces_stop() -> None:
     ]
 
     start = datetime.now(timezone.utc)
-    state = (
-        RunLoop(board, chief)
-        .sponsor(ScriptedSponsor(script))
-        .poll_every(0.0)
-        .run()
-    )
+    state = RunLoop(board, chief).sponsor(ScriptedSponsor(script)).poll_every(0.0).run()
     elapsed = datetime.now(timezone.utc) - start
     # Run exited due to drain deadline expiring, not because tasks drained
     # (the task is still IN_PROGRESS).

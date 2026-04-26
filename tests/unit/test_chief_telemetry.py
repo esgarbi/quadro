@@ -168,6 +168,6 @@ def test_policy_mutations_not_counted_as_noop() -> None:
 
     chief.nudge()
     telem = bc.get_data("_chief_telemetry")
-    assert (
-        telem["consecutive_noops"] == 0
-    ), "Policy mutated the board — this cycle should not be a noop"
+    assert telem["consecutive_noops"] == 0, (
+        "Policy mutated the board — this cycle should not be a noop"
+    )

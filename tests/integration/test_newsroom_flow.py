@@ -122,6 +122,6 @@ def test_newsroom_cooperation_flow_reaches_complete() -> None:
         and e["task_id"] == draft_id
         and e["agent_id"] == "reviewer_1"
     ]
-    assert (
-        reviewer_assigned
-    ), "expected chief-driven reviewer assignment before approval"
+    assert reviewer_assigned, (
+        "expected chief-driven reviewer assignment before approval"
+    )

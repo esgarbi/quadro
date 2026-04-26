@@ -141,9 +141,7 @@ def test_http_sponsor_parses_drain_and_stop_responses() -> None:
 def test_http_sponsor_retries_on_5xx_then_succeeds() -> None:
     server, url = _start_server()
     try:
-        _reset_handler(
-            {"decision": "continue", "lease": {"ticks": 3}}, fail_first=2
-        )
+        _reset_handler({"decision": "continue", "lease": {"ticks": 3}}, fail_first=2)
         sponsor = HttpSponsor(url, max_retries=3, timeout=2.0, backoff=0.001)
         d = sponsor.propose_lease(_ctx(), prior=None)
     finally:

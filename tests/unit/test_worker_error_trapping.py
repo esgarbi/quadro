@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from quadro import BoardClient, ChiefAgent, LocalA2ANetwork, QuadroBoard, WorkerAgent
+from quadro import BoardClient, LocalA2ANetwork, QuadroBoard, WorkerAgent
 from quadro.a2a.contracts import A2ARequest
 from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.board.state_machine import lifecycle

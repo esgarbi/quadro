@@ -1,4 +1,4 @@
-"""RunLoop — the Sponsor-governed poll loop.
+"""RunLoop — the Sponsor-governed run loop.
 
 The :class:`RunLoop` consults a :class:`~quadro.sponsor.Sponsor` for
 authority over when to keep working, when to drain, and when to stop. It
@@ -8,15 +8,29 @@ Chief and board so that every Sponsor consultation sees live readings.
 Authority axes supported by the lease: poll ticks, wall-clock deadline,
 worker invocations, LLM tokens, board events. See ``docs/design/sponsor.md``
 for the full contract.
+
+Concurrency model
+-----------------
+
+The public :meth:`RunLoop.run` call is synchronous. Internally the run
+drives an ``asyncio`` event loop so that the wait between ticks can be
+preempted by a chief wake signal instead of a fixed ``time.sleep``.
+
+The :class:`~quadro.sponsor.types.Sponsor` Protocol stays synchronous, and
+sponsor calls are bridged via :func:`asyncio.to_thread` so the existing
+sponsor implementations and test suite are unaffected.
+
+See ``docs/design/concurrency.md`` for the full concurrency design.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .agents.chief import ChiefAgent
 from .board.client import BoardClient
@@ -31,6 +45,9 @@ from .sponsor.types import (
     SponsorContext,
     Stop,
 )
+
+if TYPE_CHECKING:
+    from .board.board import QuadroBoard
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +75,11 @@ class RunLoop:
     3. On Stop (sponsor-issued or drain-completed): publish the final state
        and exit.
 
+    Ticks are driven by an :class:`asyncio.Event` that is set either when
+    ``poll_interval`` elapses or when the Chief reports a wake. This replaces
+    the previous ``time.sleep(poll_interval)`` loop and avoids tight-looping
+    when ``poll_interval=0``.
+
     Example::
 
         state = (
@@ -74,7 +96,7 @@ class RunLoop:
         from .board.board import QuadroBoard as _QuadroBoard
 
         if isinstance(board_or_client, _QuadroBoard):
-            self._board = board_or_client
+            self._board: QuadroBoard | None = board_or_client
             self._board_client = board_or_client.client()
         else:
             self._board = None
@@ -134,6 +156,11 @@ class RunLoop:
     # ── Run ───────────────────────────────────────────────────────────────────
 
     def run(self) -> dict:
+        """Run the loop to completion. Synchronous external API.
+
+        Internally drives an ``asyncio`` event loop. If the caller is already
+        inside a running event loop, :meth:`run_async` should be used instead.
+        """
         if self._sponsor is None:
             raise ValueError("RunLoop requires .sponsor(sponsor) before .run()")
 
@@ -143,7 +170,23 @@ class RunLoop:
         self._attach_subscribers()
 
         try:
-            return self._run_inner()
+            return asyncio.run(self._run_inner_async())
+        finally:
+            self._detach_subscribers()
+            self._set_drain_flag(False)
+
+    async def run_async(self) -> dict:
+        """Async variant of :meth:`run` for callers already inside an event loop."""
+        if self._sponsor is None:
+            raise ValueError("RunLoop requires .sponsor(sponsor) before .run_async()")
+
+        self._meters.reset()
+        self._lease_history.clear()
+        self._set_drain_flag(False)
+        self._attach_subscribers()
+
+        try:
+            return await self._run_inner_async()
         finally:
             self._detach_subscribers()
             self._set_drain_flag(False)
@@ -198,14 +241,16 @@ class RunLoop:
         elif draining is False:
             status["drain_deadline"] = None
         status["sponsor_id"] = getattr(
-            self._sponsor, "name", type(self._sponsor).__name__ if self._sponsor else None
+            self._sponsor,
+            "name",
+            type(self._sponsor).__name__ if self._sponsor else None,
         )
         status["meters"] = self._meters.snapshot().to_dict()
         status["updated_at"] = _utc_now().isoformat()
         try:
             self._board_client.put_data(_SPONSOR_STATUS_KEY, status)
         except Exception:  # noqa: BLE001
-            logger.debug("Failed to publish sponsor status", exc_info=True)
+            logger.debug("Failed to persist sponsor status", exc_info=True)
 
     def _current_state(self) -> dict:
         return self._board_client.full_state()
@@ -225,6 +270,11 @@ class RunLoop:
         )
 
     def _consult_sponsor(self, prior: Lease | None, state: dict) -> LeaseDecision:
+        """Synchronous sponsor consult. Safe to call from a worker thread.
+
+        Kept sync so the :class:`~quadro.sponsor.types.Sponsor` Protocol stays
+        unchanged. Called via :func:`asyncio.to_thread` from the async loop.
+        """
         ctx = self._make_context(state)
         sponsor = self._sponsor
         assert sponsor is not None
@@ -247,16 +297,21 @@ class RunLoop:
                 logger.exception("Sponsor raised; treating as Stop")
                 decision = Stop(reason=f"sponsor_error:{exc}")
 
-        if isinstance(decision, Continue):
-            decision = Continue(
-                lease=decision.lease.clamp(), reason=decision.reason
-            )
+        match decision:
+            case Continue(lease=lease, reason=reason):
+                decision = Continue(lease=lease.clamp(), reason=reason)
+            case _:
+                pass
         self._log_decision(decision, prior)
         return decision
 
-    def _log_decision(
-        self, decision: LeaseDecision, prior: Lease | None
-    ) -> None:
+    async def _consult_sponsor_async(
+        self, prior: Lease | None, state: dict
+    ) -> LeaseDecision:
+        """Run the sync sponsor in a worker thread so the event loop stays responsive."""
+        return await asyncio.to_thread(self._consult_sponsor, prior, state)
+
+    def _log_decision(self, decision: LeaseDecision, prior: Lease | None) -> None:
         sponsor = self._sponsor
         sponsor_id = getattr(sponsor, "name", type(sponsor).__name__)
         record: dict[str, Any] = {
@@ -265,19 +320,18 @@ class RunLoop:
             "prior_lease_id": prior.id if prior is not None else None,
             "meters": self._meters.snapshot().to_dict(),
         }
-        if isinstance(decision, Continue):
-            record["decision"] = "continue"
-            record["reason"] = decision.reason
-            record["lease"] = decision.lease.to_dict()
-        elif isinstance(decision, Drain):
-            record["decision"] = "drain"
-            record["reason"] = decision.reason
-            record["deadline"] = (
-                decision.deadline.isoformat() if decision.deadline else None
-            )
-        else:
-            record["decision"] = "stop"
-            record["reason"] = decision.reason
+        match decision:
+            case Continue(lease=lease, reason=reason):
+                record["decision"] = "continue"
+                record["reason"] = reason
+                record["lease"] = lease.to_dict()
+            case Drain(reason=reason, deadline=deadline):
+                record["decision"] = "drain"
+                record["reason"] = reason
+                record["deadline"] = deadline.isoformat() if deadline else None
+            case Stop(reason=reason):
+                record["decision"] = "stop"
+                record["reason"] = reason
 
         try:
             existing = self._board_client.get_data(_SPONSOR_LOG_KEY) or []
@@ -316,9 +370,11 @@ class RunLoop:
 
         During drain, once this is False, auto-Stop fires.
         """
-        terminal = {
-            str(s) for s in state.get("_terminal_statuses", [])
-        } or {"COMPLETE", "HUMAN_REVIEW", "ON_HOLD"}
+        terminal = {str(s) for s in state.get("_terminal_statuses", [])} or {
+            "COMPLETE",
+            "HUMAN_REVIEW",
+            "ON_HOLD",
+        }
         pending_ok_to_end: set[str] = {"UNASSIGNED"}
         end_statuses = terminal | pending_ok_to_end
         for t in state.get("tasks", []):
@@ -326,40 +382,74 @@ class RunLoop:
                 return False
         return True
 
-    def _run_inner(self) -> dict:
+    async def _wait_for_tick(self, wake_event: asyncio.Event) -> None:
+        """Wait for the next tick: either ``poll_interval`` elapsed or a chief wake.
+
+        When ``poll_interval<=0`` the loop stays fully reactive: it only yields
+        once to the event loop so other tasks (sponsor timer, ombudsman) can
+        run. Downstream sponsors remain responsible for bounding the run.
+        """
+        if self._poll_interval <= 0:
+            await asyncio.sleep(0)
+            wake_event.clear()
+            return
+        try:
+            await asyncio.wait_for(wake_event.wait(), timeout=self._poll_interval)
+        except asyncio.TimeoutError:
+            pass
+        finally:
+            wake_event.clear()
+
+    async def _run_inner_async(self) -> dict:
+        loop = asyncio.get_running_loop()
+        wake_event = asyncio.Event()
+
+        def _on_chief_wake(trigger: str) -> None:
+            # Chief wake listeners can fire from any thread (workers post a
+            # wake envelope via A2A, which is served on worker threads). Use
+            # call_soon_threadsafe so the event is set on the loop thread.
+            try:
+                loop.call_soon_threadsafe(wake_event.set)
+            except RuntimeError:
+                pass  # loop is closing; nothing to do
+
+        self._chief.add_wake_listener(_on_chief_wake)
+        try:
+            return await self._run_inner_body(wake_event)
+        finally:
+            self._chief.remove_wake_listener(_on_chief_wake)
+
+    async def _run_inner_body(self, wake_event: asyncio.Event) -> dict:  # noqa: PLR0912
         logger.debug("RunLoop: seeding chief")
         self._chief.nudge(trigger="seed")
 
         state = self._current_state()
-        decision = self._consult_sponsor(prior=None, state=state)
+        decision = await self._consult_sponsor_async(prior=None, state=state)
 
-        if isinstance(decision, Stop):
-            return self._finalise(state)
-
-        active_lease: Lease | None = None
-        drain_deadline: datetime | None = None
-        draining = False
-
-        if isinstance(decision, Continue):
-            active_lease = decision.lease
-            self._lease_history.append(active_lease)
-            self._publish_status(active_lease=active_lease, draining=False)
-        elif isinstance(decision, Drain):
-            draining = True
-            drain_deadline = self._resolve_drain_deadline(decision.deadline)
-            self._set_drain_flag(True)
-            self._publish_status(draining=True, drain_deadline=drain_deadline)
+        match decision:
+            case Stop():
+                return self._finalise(state)
+            case Continue(lease=lease):
+                active_lease: Lease | None = lease
+                self._lease_history.append(active_lease)
+                self._publish_status(active_lease=active_lease, draining=False)
+                draining = False
+                drain_deadline: datetime | None = None
+            case Drain(deadline=deadline):
+                active_lease = None
+                draining = True
+                drain_deadline = self._resolve_drain_deadline(deadline)
+                self._set_drain_flag(True)
+                self._publish_status(draining=True, drain_deadline=drain_deadline)
 
         last_ombudsman = time.monotonic()
         cycle = 0
-        final_state: dict = state
 
         while True:
-            time.sleep(self._poll_interval)
+            await self._wait_for_tick(wake_event)
             self._meters.ticks.tick()
 
             state = self._current_state()
-            final_state = state
 
             if self._cycle_callback is not None:
                 try:
@@ -382,24 +472,27 @@ class RunLoop:
 
             # ── Normal (non-drain) lifecycle ─────────────────────────────────
             if active_lease is None or self._lease_exhausted(active_lease, state):
-                decision = self._consult_sponsor(prior=active_lease, state=state)
-                if isinstance(decision, Stop):
-                    return self._finalise(state)
-                if isinstance(decision, Drain):
-                    draining = True
-                    drain_deadline = self._resolve_drain_deadline(decision.deadline)
-                    self._set_drain_flag(True)
-                    self._publish_status(
-                        draining=True, drain_deadline=drain_deadline
-                    )
-                    cycle += 1
-                    self._maybe_nudge_ombudsman(last_ombudsman)
-                    last_ombudsman = self._advance_ombudsman_clock(last_ombudsman)
-                    continue
-                assert isinstance(decision, Continue)
-                active_lease = decision.lease
-                self._lease_history.append(active_lease)
-                self._publish_status(active_lease=active_lease, draining=False)
+                decision = await self._consult_sponsor_async(
+                    prior=active_lease, state=state
+                )
+                match decision:
+                    case Stop():
+                        return self._finalise(state)
+                    case Drain(deadline=deadline):
+                        draining = True
+                        drain_deadline = self._resolve_drain_deadline(deadline)
+                        self._set_drain_flag(True)
+                        self._publish_status(
+                            draining=True, drain_deadline=drain_deadline
+                        )
+                        cycle += 1
+                        self._maybe_nudge_ombudsman(last_ombudsman)
+                        last_ombudsman = self._advance_ombudsman_clock(last_ombudsman)
+                        continue
+                    case Continue(lease=lease):
+                        active_lease = lease
+                        self._lease_history.append(active_lease)
+                        self._publish_status(active_lease=active_lease, draining=False)
 
             cycle += 1
             self._maybe_nudge_ombudsman(last_ombudsman)

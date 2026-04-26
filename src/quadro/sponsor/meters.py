@@ -145,9 +145,7 @@ class BoardEventMeter:
     ``filter`` may be passed to narrow the set; the default counts all.
     """
 
-    def __init__(
-        self, *, filter: Callable[[dict], bool] | None = None
-    ) -> None:  # noqa: A002
+    def __init__(self, *, filter: Callable[[dict], bool] | None = None) -> None:  # noqa: A002
         self._lock = threading.Lock()
         self._count = 0
         self._filter = filter

@@ -73,7 +73,9 @@ __all__ = [
     "SponsorContext",
     "Stop",
     "TickBudgetSponsor",
+    "TickMeter",
     "WallClockMeter",
+    "WorkerBudgetSponsor",
     "WorkerInvocationMeter",
     "new_lease_id",
 ]

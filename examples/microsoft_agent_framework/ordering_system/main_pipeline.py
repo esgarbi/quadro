@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from quadro import LifecycleBuilder, QuadroRuntime
 from quadro.board.backends import SqliteBoardBackend
 from quadro.integrations.maf import MafPipeline
-from quadro.sponsor import AllOf, DeadlineSponsor, GoalSponsor, TickBudgetSponsor
+from quadro.sponsor import AllOf, GoalSponsor, TickBudgetSponsor
 
 from data import INITIAL_WAREHOUSE, PRODUCT_CATALOG
 from producer import ChoreographyStep, OrderProducer
@@ -208,7 +208,7 @@ def main(
     shipped_count = sum(1 for t in tasks if t["status"] == "shipped")
 
     print(f"\n{'=' * 60}")
-    print(f"  Ordering system complete")
+    print("  Ordering system complete")
     print(f"  Shipped: {shipped_count}/{target_shipped}")
     print(f"  Mode: {mode}")
     print(f"{'=' * 60}")

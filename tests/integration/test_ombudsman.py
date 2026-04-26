@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from quadro import ChiefAgent, LocalA2ANetwork, QuadroBoard, WorkerAgent
+from quadro import ChiefAgent, LocalA2ANetwork, QuadroBoard
 from quadro.a2a.contracts import A2ARequest
 from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.board.records import TaskStatus
@@ -213,6 +213,6 @@ def test_non_in_progress_tasks_ignored() -> None:
             board_url,
             A2ARequest(intent="board.get_task", payload={"task_id": tid}).to_dict(),
         )
-        assert (
-            resp["result"]["task"]["status"] == expected
-        ), f"task {tid} changed unexpectedly"
+        assert resp["result"]["task"]["status"] == expected, (
+            f"task {tid} changed unexpectedly"
+        )

@@ -15,11 +15,13 @@ import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from shared import (
+from shared import (  # noqa: E402  (must import after load_dotenv so env vars are populated)
     create_llm_client,
     dispatch_batch,
     find_idle_worker,
@@ -28,6 +30,9 @@ from shared import (
     run_chief_workflow,
     run_single_agent,
 )
+
+if TYPE_CHECKING:
+    from quadro import BoardClient
 
 logger = logging.getLogger(__name__)
 

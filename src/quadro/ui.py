@@ -59,7 +59,22 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
-_UI_VERSION = "1.2.0"
+
+def _resolve_package_version() -> str:
+    """Return the installed Quadro package version.
+
+    Falls back to ``unknown`` if the package metadata cannot be read (for
+    example, when running directly from source without install).
+    """
+    try:
+        from . import __version__ as _pkg_version
+
+        return _pkg_version
+    except Exception:  # noqa: BLE001
+        return "unknown"
+
+
+_UI_VERSION = _resolve_package_version()
 
 _FALLBACK_TERMINAL_STATUSES: frozenset[str] = frozenset(
     {"COMPLETE", "HUMAN_REVIEW", "ON_HOLD"}
@@ -251,12 +266,81 @@ class _EventBroadcaster(threading.Thread):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  Prometheus metrics rendering
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _escape_label_value(value: str) -> str:
+    """Escape a Prometheus label value per the text exposition format."""
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+def _render_prometheus_metrics(state: dict[str, Any]) -> str:
+    """Render a :mod:`prometheus_client`-compatible exposition from a board state.
+
+    Kept stdlib-only — the exposition format is simple enough that pulling
+    in ``prometheus_client`` would contradict Quadro's zero-dep aesthetic.
+    """
+    tasks = state.get("tasks") or []
+    data = state.get("data") or {}
+    chief_telem = data.get("_chief_telemetry") or {}
+    sponsor_status = data.get("_sponsor_status") or {}
+
+    status_counts: dict[str, int] = {}
+    for t in tasks:
+        status = str(t.get("status", "UNKNOWN"))
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    stale_count = status_counts.get("STALE", 0)
+
+    cycles_run = int(chief_telem.get("cycles_run", 0) or 0)
+    consecutive_noops = int(chief_telem.get("consecutive_noops", 0) or 0)
+    last_cycle_duration_ms = int(chief_telem.get("last_cycle_duration_ms", 0) or 0)
+    draining = 1 if bool(sponsor_status.get("draining")) else 0
+
+    lines: list[str] = []
+
+    lines.append("# HELP quadro_chief_cycles_total Total Chief decision cycles run.")
+    lines.append("# TYPE quadro_chief_cycles_total counter")
+    lines.append(f"quadro_chief_cycles_total {cycles_run}")
+
+    lines.append(
+        "# HELP quadro_chief_consecutive_noops Recent consecutive wakes that "
+        "found nothing to do."
+    )
+    lines.append("# TYPE quadro_chief_consecutive_noops gauge")
+    lines.append(f"quadro_chief_consecutive_noops {consecutive_noops}")
+
+    lines.append(
+        "# HELP quadro_chief_last_cycle_duration_ms Duration of the most recent "
+        "Chief cycle in milliseconds."
+    )
+    lines.append("# TYPE quadro_chief_last_cycle_duration_ms gauge")
+    lines.append(f"quadro_chief_last_cycle_duration_ms {last_cycle_duration_ms}")
+
+    lines.append("# HELP quadro_draining 1 if the runtime is currently draining.")
+    lines.append("# TYPE quadro_draining gauge")
+    lines.append(f"quadro_draining {draining}")
+
+    lines.append("# HELP quadro_tasks_total Tasks on the board, by status.")
+    lines.append("# TYPE quadro_tasks_total gauge")
+    for status, count in sorted(status_counts.items()):
+        safe = _escape_label_value(status)
+        lines.append(f'quadro_tasks_total{{status="{safe}"}} {count}')
+
+    lines.append("# HELP quadro_ombudsman_stale_count Tasks currently in STALE status.")
+    lines.append("# TYPE quadro_ombudsman_stale_count gauge")
+    lines.append(f"quadro_ombudsman_stale_count {stale_count}")
+
+    return "\n".join(lines) + "\n"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  HTTP request handler
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 class _Handler(BaseHTTPRequestHandler):
-
     source: _DataSource
     broadcaster: _EventBroadcaster
     db_label: str
@@ -275,6 +359,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_state()
         elif path == "/api/events":
             self._serve_sse()
+        elif path == "/healthz":
+            self._serve_healthz()
+        elif path == "/metrics":
+            self._serve_metrics()
         elif m := re.match(r"^/api/task/([^/]+)/history$", path):
             self._serve_task_history(m.group(1))
         else:
@@ -338,9 +426,7 @@ class _Handler(BaseHTTPRequestHandler):
                 "chief": chief_telem,
                 "sponsor": sponsor_status,
                 "sponsor_log": (
-                    sponsor_log[-20:]
-                    if isinstance(sponsor_log, list)
-                    else None
+                    sponsor_log[-20:] if isinstance(sponsor_log, list) else None
                 ),
             }
             self._json(200, state)
@@ -398,6 +484,36 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(data)
+
+    # ── Operational endpoints ─────────────────────────────────────────────────
+
+    def _serve_healthz(self) -> None:
+        """Liveness probe. 200 if the data source is reachable, 503 otherwise."""
+        try:
+            self.source.full_state()
+            self._json(200, {"status": "ok"})
+        except Exception as exc:
+            self._json(503, {"status": "unavailable", "error": str(exc)})
+
+    def _serve_metrics(self) -> None:
+        """Prometheus text-format metrics.
+
+        Derived from the current board snapshot plus the chief telemetry the
+        runtime already writes into ``_chief_telemetry``. No new state is
+        computed — the endpoint is a translation, not a source.
+        """
+        try:
+            state = self.source.full_state()
+            body = _render_prometheus_metrics(state)
+            data = body.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; version=0.0.4")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as exc:
+            self._json(500, {"error": str(exc)})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -743,6 +859,7 @@ button.icon-btn:hover { border-color:var(--accent); color:var(--accent); }
   <span id="chief-pulse" title="Chief status"></span>
   <span id="chief-status-label" class="meta"></span>
   <span class="meta" id="last-updated"></span>
+  <span class="meta" id="ui-version" title="Quadro package version">v__UI_VERSION__</span>
   <button class="icon-btn" id="theme-btn" title="Toggle theme">☀︎</button>
   <button class="icon-btn" id="refresh-btn" title="Refresh now">↺</button>
 </header>
@@ -1375,6 +1492,12 @@ def _cli() -> None:
     parser = argparse.ArgumentParser(
         prog="python -m quadro.ui",
         description="Quadro Board UI — zero-dependency live Kanban viewer",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"quadro {_UI_VERSION}",
+        help="Print the installed Quadro version and exit.",
     )
     parser.add_argument("db", nargs="?", help="Path to a Quadro SQLite database file")
     parser.add_argument("--port", type=int, default=8080)

@@ -36,12 +36,46 @@ from typing import Any
 from uuid import uuid4
 
 from ..pipeline import (
-    BuiltPipeline,
     Pipeline,
     StageSpec,
     ToolDescriptor,
     generate_tool_descriptors,
 )
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Optional agent_framework import
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# The symbols below are imported at module level (rather than inside each
+# function body) so that ``typing.get_type_hints`` can resolve string
+# annotations like ``WorkflowContext[AgentExecutorRequest]`` on nested
+# ``@executor``-decorated functions. agent-framework 1.x added a strict
+# validator that calls ``get_type_hints`` and rejects annotations it cannot
+# resolve — with ``from __future__ import annotations`` the annotations are
+# strings at runtime, so the resolver needs these names in ``__globals__``.
+#
+# The try/except preserves the zero-dependency property of the core package:
+# ``quadro.integrations.maf`` stays importable even without agent-framework
+# installed. Any actual use goes through ``_ensure_maf()`` which raises a
+# friendly error in that case.
+try:
+    from agent_framework import (
+        AgentExecutorRequest,
+        Message,
+        WorkflowBuilder,
+        WorkflowContext,
+        WorkflowEvent,
+        executor,
+    )
+    from agent_framework import tool as maf_tool
+except ImportError:  # pragma: no cover - exercised only without the extra
+    AgentExecutorRequest = None  # type: ignore[assignment,misc]
+    Message = None  # type: ignore[assignment,misc]
+    WorkflowBuilder = None  # type: ignore[assignment,misc]
+    WorkflowContext = None  # type: ignore[assignment,misc]
+    WorkflowEvent = None  # type: ignore[assignment,misc]
+    executor = None  # type: ignore[assignment,misc]
+    maf_tool = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +86,8 @@ _MAF_IMPORT_ERROR: str = (
 
 
 def _ensure_maf() -> None:
-    try:
-        import agent_framework  # noqa: F401
-    except ImportError as exc:
-        raise ImportError(_MAF_IMPORT_ERROR) from exc
+    if executor is None:
+        raise ImportError(_MAF_IMPORT_ERROR)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -149,21 +181,11 @@ async def _run_single_agent(
     default_options: dict | None = None,
     executor_prefix: str = "_agent",
 ) -> str:
-    from agent_framework import (
-        AgentExecutorRequest,
-        Message,
-        WorkflowBuilder,
-        WorkflowContext,
-        WorkflowEvent,
-        executor,
-    )
-
+    _ensure_maf()
     uid = uuid4().hex[:8]
 
     @executor(id=f"_{executor_prefix}_{uid}")
-    async def _start(
-        trigger: str, ctx: WorkflowContext[AgentExecutorRequest]
-    ) -> None:
+    async def _start(trigger: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
         await ctx.send_message(
             AgentExecutorRequest(
                 messages=[Message("user", [trigger])],
@@ -194,15 +216,7 @@ async def _run_chief_workflow(
     client_factory: Callable,
     agent_name_prefix: str = "chief",
 ) -> str | None:
-    from agent_framework import (
-        AgentExecutorRequest,
-        Message,
-        WorkflowBuilder,
-        WorkflowContext,
-        WorkflowEvent,
-        executor,
-    )
-
+    _ensure_maf()
     uid = uuid4().hex[:8]
 
     @executor(id=f"_chief_{uid}")
@@ -312,12 +326,8 @@ async def llm_call(
 
 def _decorate_descriptors(descriptors: list[ToolDescriptor]) -> list:
     """Wrap ``ToolDescriptor`` instances with MAF ``@tool`` decorator."""
-    from agent_framework import tool as maf_tool
-
-    return [
-        maf_tool(name=d.name, description=d.description)(d.fn)
-        for d in descriptors
-    ]
+    _ensure_maf()
+    return [maf_tool(name=d.name, description=d.description)(d.fn) for d in descriptors]
 
 
 def tools_from_lifecycle(
@@ -433,10 +443,21 @@ class MafPipeline(Pipeline):
 
     def _make_stage_spec(self, capability: str, **kwargs: Any) -> StageSpec:
         """Create a MafStageSpec that carries prompt/schema fields."""
-        maf_fields = {k: v for k, v in kwargs.items() if k in {
-            "execute_fn", "active_status", "success_status", "failure_status",
-            "max_working_time", "tool_name", "prompt", "output_schema",
-        }}
+        maf_fields = {
+            k: v
+            for k, v in kwargs.items()
+            if k
+            in {
+                "execute_fn",
+                "active_status",
+                "success_status",
+                "failure_status",
+                "max_working_time",
+                "tool_name",
+                "prompt",
+                "output_schema",
+            }
+        }
         return MafStageSpec(capability, **maf_fields)
 
     # ── Framework hooks ───────────────────────────────────────────────────────
@@ -480,9 +501,7 @@ class MafPipeline(Pipeline):
         failure = spec.failure_status
         cap = spec.capability
 
-        async def _execute(
-            context: dict, board_fn: Callable[[str, dict], dict]
-        ) -> str:
+        async def _execute(context: dict, board_fn: Callable[[str, dict], dict]) -> str:
             task = context["payload"]["task"]
             task_input = task.get("output") or task.get("notes", ["{}"])[0]
 

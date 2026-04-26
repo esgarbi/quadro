@@ -48,7 +48,6 @@ def test_concurrent_wake_queues_pending() -> None:
     finishing the first.  Total cycles == 2, never concurrent.
     """
     network, board_url = _make_env()
-    concurrent_cycles: list[int] = []
 
     chief = ChiefAgent(network=network, board_url=board_url)
 
@@ -112,7 +111,7 @@ def test_nudge_delegates_to_wake() -> None:
 def test_wake_endpoint_registered_when_chief_url_provided() -> None:
     network, board_url = _make_env()
     chief_url = "a2a://chief"
-    chief = ChiefAgent(network=network, board_url=board_url, chief_url=chief_url)
+    ChiefAgent(network=network, board_url=board_url, chief_url=chief_url)
 
     # The endpoint must be reachable — send a valid chief.wake request
     resp = network.request(

@@ -10,6 +10,7 @@ from ..a2a.contracts import A2ARequest, A2AResponse, validate_request_envelope
 from ..a2a.dispatch import A2ATransport
 from ..board.client import BoardClient
 from ..board.records import AgentStatus
+from ..log_context import agent_scope, task_scope
 from .hydration import hydrate_worker_context
 
 
@@ -87,9 +88,12 @@ class WorkerAgent:
                 pass  # Best-effort. Board event will also wake Chief.
 
     def _execute_task(self, payload: dict) -> dict:
-        task = self._board_request("board.get_task", {"task_id": payload["task_id"]})[
-            "task"
-        ]
+        task_id = payload["task_id"]
+        with task_scope(task_id), agent_scope(self.agent_id):
+            return self._execute_task_inner(task_id)
+
+    def _execute_task_inner(self, task_id: str) -> dict:
+        task = self._board_request("board.get_task", {"task_id": task_id})["task"]
         context = hydrate_worker_context(task, notes=task.get("notes", []))
         self._board_request(
             "board.post_agent_heartbeat",

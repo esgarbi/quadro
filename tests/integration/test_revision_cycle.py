@@ -109,12 +109,12 @@ def test_revision_cycle_reaches_complete() -> None:
         for e in events
         if e["event_type"] == "task_reviewed" and e["task_id"] == task_id
     ]
-    assert (
-        len(reviewed_events) >= 2
-    ), f"Expected at least 2 task_reviewed events (rejection + approval); got {len(reviewed_events)}"
+    assert len(reviewed_events) >= 2, (
+        f"Expected at least 2 task_reviewed events (rejection + approval); got {len(reviewed_events)}"
+    )
 
     to_statuses = [e["to_status"] for e in reviewed_events]
-    assert (
-        "REVISION_NEEDED" in to_statuses
-    ), "Expected at least one rejection (REVISION_NEEDED)"
+    assert "REVISION_NEEDED" in to_statuses, (
+        "Expected at least one rejection (REVISION_NEEDED)"
+    )
     assert "APPROVED" in to_statuses, "Expected at least one approval (APPROVED)"

@@ -72,7 +72,9 @@ def main() -> None:
         .capability("draft")
         .at("a2a://workers/writer_1")
         .execute(
-            lambda ctx, _: f"Draft article generated from: {ctx['payload']['task']['label']}"
+            lambda ctx, _: (
+                f"Draft article generated from: {ctx['payload']['task']['label']}"
+            )
         )
         .build()
     )

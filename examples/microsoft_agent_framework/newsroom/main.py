@@ -90,7 +90,9 @@ def main(
 
     # ── Chief ──────────────────────────────────────────────────────────────────
     chief_policy = build_chief_policy(runtime.client, pool.registry, pool.capacity())
-    chief = ChiefAgent.builder(runtime.client).at(CHIEF_URL).policy(chief_policy).build()
+    chief = (
+        ChiefAgent.builder(runtime.client).at(CHIEF_URL).policy(chief_policy).build()
+    )
 
     # ── Ombudsman ──────────────────────────────────────────────────────────────
     wd = pool.ombudsman()

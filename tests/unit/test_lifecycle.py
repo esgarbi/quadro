@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import warnings
 
-import pytest
 
 from quadro.board.state_machine import (
     Lifecycle,

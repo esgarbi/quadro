@@ -202,9 +202,7 @@ def test_queue_depth_drain_when_empty() -> None:
 
 
 def test_queue_depth_immediate_stop_option() -> None:
-    sponsor = QueueDepthSponsor(
-        "orders_in_queue", min_depth=1, immediate_stop=True
-    )
+    sponsor = QueueDepthSponsor("orders_in_queue", min_depth=1, immediate_stop=True)
     state = {"tasks": [], "agents": [], "data": {}}
     d = sponsor.propose_lease(_ctx(state=state), prior=None)
     assert isinstance(d, Stop)

@@ -84,6 +84,6 @@ def test_chief_skips_heartbeat_for_coordination_policy() -> None:
         board_url,
         A2ARequest(intent="board.get_task", payload={"task_id": task_id}).to_dict(),
     )
-    assert (
-        task_after["result"]["task"]["status"] == "IN_PROGRESS"
-    ), "Task must not be re-routed"
+    assert task_after["result"]["task"]["status"] == "IN_PROGRESS", (
+        "Task must not be re-routed"
+    )

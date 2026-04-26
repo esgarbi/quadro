@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -183,11 +183,13 @@ def generate_tool_descriptors(
 
             return dispatch_fn
 
-        descriptors.append(ToolDescriptor(
-            name=tool_name,
-            description=description,
-            fn=_make_dispatch_fn(),
-        ))
+        descriptors.append(
+            ToolDescriptor(
+                name=tool_name,
+                description=description,
+                fn=_make_dispatch_fn(),
+            )
+        )
 
     def _discard_task(task_id: str) -> str:
         state = board_fn("board.get_full_state", {})
@@ -202,15 +204,17 @@ def generate_tool_descriptors(
         acknowledge_task(board_fn, task_id)
         return f"Task {task_id[:8]} acknowledged."
 
-    descriptors.append(ToolDescriptor(
-        name="discard_task",
-        description=(
-            "Acknowledge a HUMAN_REVIEW or FAILED task so it stops appearing "
-            "in the board summary. Call once per failed task. Provide the "
-            "full task_id."
-        ),
-        fn=_discard_task,
-    ))
+    descriptors.append(
+        ToolDescriptor(
+            name="discard_task",
+            description=(
+                "Acknowledge a HUMAN_REVIEW or FAILED task so it stops appearing "
+                "in the board summary. Call once per failed task. Provide the "
+                "full task_id."
+            ),
+            fn=_discard_task,
+        )
+    )
 
     return descriptors
 
@@ -336,10 +340,10 @@ class Pipeline:
 
     def _make_stage_spec(self, capability: str, **kwargs: Any) -> StageSpec:
         """Create a StageSpec. Override in subclasses to use extended specs."""
-        return StageSpec(capability, **{
-            k: v for k, v in kwargs.items()
-            if k in StageSpec.__dataclass_fields__
-        })
+        return StageSpec(
+            capability,
+            **{k: v for k, v in kwargs.items() if k in StageSpec.__dataclass_fields__},
+        )
 
     def chief(
         self,
@@ -401,7 +405,9 @@ class Pipeline:
         bc = self._bc
 
         # ── WorkerPool ────────────────────────────────────────────────────────
-        pool_builder = WorkerPool(bc).workers(self._workers_per_cap).wakes(self._chief_url)
+        pool_builder = (
+            WorkerPool(bc).workers(self._workers_per_cap).wakes(self._chief_url)
+        )
         if self._capacity_override is not None:
             pool_builder = pool_builder.capacity(self._capacity_override)
 
@@ -437,7 +443,6 @@ class Pipeline:
 
         goal_key = self._chief_goal_key
         extra_tools_raw = self._chief_extra_tools
-        chief_name = self._chief_name_prefix
         first_active = self._stages[0].active_status if self._stages else None
         first_cap = self._stages[0].capability if self._stages else None
 
@@ -447,8 +452,12 @@ class Pipeline:
 
             if first_active and first_cap:
                 dispatch_batch(
-                    board_fn, network, pool.registry,
-                    "UNASSIGNED", first_active, first_cap,
+                    board_fn,
+                    network,
+                    pool.registry,
+                    "UNASSIGNED",
+                    first_active,
+                    first_cap,
                 )
 
             if lifecycle is not None:
@@ -478,19 +487,16 @@ class Pipeline:
 
             try:
                 output = await self._run_chief_llm_turn(
-                    board_summary, instructions, tools,
+                    board_summary,
+                    instructions,
+                    tools,
                 )
                 if output:
                     logger.info("Chief: %s", output[:200])
             except Exception as exc:
                 logger.error("Chief policy error: %s", exc)
 
-        chief = (
-            ChiefAgent.builder(bc)
-            .at(self._chief_url)
-            .policy(_chief_policy)
-            .build()
-        )
+        chief = ChiefAgent.builder(bc).at(self._chief_url).policy(_chief_policy).build()
 
         # ── Ombudsman ─────────────────────────────────────────────────────────
         wd = pool.ombudsman()

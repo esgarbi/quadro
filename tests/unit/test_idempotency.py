@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import sqlite3
-from threading import RLock
 
-from quadro import BoardClient, ConflictError, LocalA2ANetwork, QuadroBoard
+from quadro import BoardClient, LocalA2ANetwork, QuadroBoard
 from quadro.a2a.contracts import A2ARequest
 from quadro.board.backends.sqlite import SqliteBoardBackend
-from quadro.board.idempotency import IdempotencyStore
+from quadro.board.idempotency import IdempotencyStore, SqliteIdempotencyStore
 
 
 def _make_env(
@@ -18,7 +16,7 @@ def _make_env(
 
     store: IdempotencyStore | None = None
     if with_store:
-        store = IdempotencyStore(backend._conn, backend._lock)
+        store = SqliteIdempotencyStore(backend._conn, backend._lock)
 
     board = QuadroBoard(
         backend,
@@ -125,3 +123,34 @@ def test_board_without_store_behaves_as_before() -> None:
 
     state = bc.full_state()
     assert len(state["tasks"]) == 2, "Without store, duplicate keys create new tasks"
+
+
+# ── Protocol conformance ──────────────────────────────────────────────────────
+
+
+def test_sqlite_store_satisfies_protocol() -> None:
+    """`SqliteIdempotencyStore` must satisfy the runtime-checkable Protocol
+    so that future backends can substitute without subclassing."""
+    backend = SqliteBoardBackend(":memory:")
+    store = SqliteIdempotencyStore(backend._conn, backend._lock)
+    assert isinstance(store, IdempotencyStore)
+
+
+def test_arbitrary_shape_satisfies_protocol() -> None:
+    """Any object with check()/store() methods should be a valid IdempotencyStore.
+
+    This is the structural subtyping guarantee the refactor set out to enable.
+    """
+
+    class _InMemoryStore:
+        def __init__(self) -> None:
+            self._seen: dict[str, tuple[str, dict]] = {}
+
+        def check(self, key: str, fingerprint: str) -> dict | None:
+            row = self._seen.get(key)
+            return row[1] if row is not None else None
+
+        def store(self, key: str, fingerprint: str, result: dict) -> None:
+            self._seen[key] = (fingerprint, result)
+
+    assert isinstance(_InMemoryStore(), IdempotencyStore)

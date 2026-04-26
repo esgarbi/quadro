@@ -12,7 +12,6 @@ from collections.abc import Iterable, Iterator
 
 from .types import (
     Continue,
-    Drain,
     Lease,
     LeaseDecision,
     Sponsor,
@@ -49,9 +48,7 @@ class AlwaysOnSponsor:
         self._ticks = ticks
         self._deadline_seconds = deadline_seconds
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         from datetime import timedelta
 
         deadline = (
@@ -81,9 +78,7 @@ class AlwaysStopSponsor:
         self.fail_open = False
         self._reason = reason
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         return Stop(reason=self._reason)
 
 
@@ -131,9 +126,7 @@ class ScriptedSponsor:
         """Number of ``propose_lease`` invocations so far."""
         return self._calls
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         self._calls += 1
         try:
             decision = next(self._iter)

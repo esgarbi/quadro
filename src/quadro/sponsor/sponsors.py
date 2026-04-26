@@ -116,9 +116,7 @@ class GoalSponsor:
         self._reason = reason
         self._done_reason = done_reason
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         if self._predicate(ctx.state):
             return Stop(reason=self._done_reason)
         ticks_ceiling = (
@@ -173,9 +171,7 @@ class DeadlineSponsor:
         td = timedelta(**kwargs)
         return cls(_utc_now() + td, name=name, fail_open=fail_open)
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         if ctx.now >= self._deadline:
             return Stop(reason=f"deadline_passed:{self._deadline.isoformat()}")
         lease = _lease(
@@ -219,9 +215,7 @@ class _SingleAxisBudgetSponsor:
     def _meter_value(self, readings) -> int:  # pragma: no cover - overridden
         raise NotImplementedError
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         used = self._meter_value(ctx.meters)
         remaining = self._total - used
         if remaining <= 0:
@@ -323,9 +317,7 @@ class CallableSponsor:
         self.fail_open = fail_open
         self._fn = fn
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         decision = self._fn(ctx, prior)
         if isinstance(decision, Continue):
             lease = decision.lease
@@ -400,9 +392,7 @@ class QueueDepthSponsor:
             return len(value)
         return 0
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         depth = self._depth(ctx.state)
         if depth >= self._min_depth:
             ticks_ceiling = (
@@ -446,9 +436,7 @@ class CallbackSponsor:
 
     def __init__(
         self,
-        callback: Callable[
-            [SponsorContext, Lease | None], Awaitable[LeaseDecision]
-        ],
+        callback: Callable[[SponsorContext, Lease | None], Awaitable[LeaseDecision]],
         *,
         name: str = "callback",
         timeout: float | None = 30.0,
@@ -459,9 +447,7 @@ class CallbackSponsor:
         self._callback = callback
         self._timeout = timeout
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         coro = self._callback(ctx, prior)
         if self._timeout is not None:
 
@@ -479,9 +465,7 @@ class CallbackSponsor:
 
         if running_loop is not None:
             future = asyncio.run_coroutine_threadsafe(runner, running_loop)
-            return future.result(
-                timeout=self._timeout if self._timeout else None
-            )
+            return future.result(timeout=self._timeout if self._timeout else None)
         return asyncio.run(runner)
 
 
@@ -590,9 +574,7 @@ class HttpSponsor:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         body = self._build_body(ctx, prior)
         last_exc: Exception | None = None
         for attempt in range(self._max_retries + 1):
@@ -611,9 +593,7 @@ class HttpSponsor:
                 if status == 200:
                     return self._parse_decision(ctx, prior, parsed)
                 if 400 <= status < 500:
-                    return self._handle_error(
-                        prior, RuntimeError(f"HTTP {status}")
-                    )
+                    return self._handle_error(prior, RuntimeError(f"HTTP {status}"))
                 # 5xx falls through to retry
                 last_exc = RuntimeError(f"HTTP {status}")
             if attempt < self._max_retries:

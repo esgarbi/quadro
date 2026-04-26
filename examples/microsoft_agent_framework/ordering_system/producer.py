@@ -40,7 +40,7 @@ from typing import Literal
 
 from quadro.board.client import BoardClient
 
-from data import CUSTOMER_DETAILS, INITIAL_WAREHOUSE, PRODUCT_CATALOG
+from data import CUSTOMER_DETAILS, PRODUCT_CATALOG
 
 logger = logging.getLogger(__name__)
 

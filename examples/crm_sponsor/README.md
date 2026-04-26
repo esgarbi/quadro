@@ -20,16 +20,26 @@ python examples/crm_sponsor/main.py
 ```
 
 - The run starts with five tasks on the board and the ticket in `open`.
-- ~0.5s in, the ticket evolves to `in_review` and the Sponsor returns
+  Workers sleep briefly per task so you can actually *see* work in flight
+  rather than having it all complete inside the seed nudge.
+- The CRM schedule is armed on the first loop cycle (not at setup time),
+  so the transitions play out relative to the loop — robust to slow startup,
+  debuggers, and any environment where the first few milliseconds are
+  unpredictable.
+- ~1s in, the ticket evolves to `in_review` and the Sponsor returns
   `Drain`. The RunLoop publishes the drain flag to the board; the chief
   stops picking up new UNASSIGNED tasks. Workers that were already in
   flight continue to their natural terminal state.
-- ~2s in, the ticket evolves to `closed` and the Sponsor returns `Stop`.
-  Because drain completed earlier (no active tasks), the run had already
-  moved to its terminal state.
+- ~3s in, the ticket *would* evolve to `closed` and the Sponsor *would*
+  return `Stop`. In practice drain completes first (all five tasks finish
+  well before 3s) and the runtime exits via the drain-complete path, so
+  the `closed` transition often does not fire before the run ends. That
+  is the designed behaviour — the Sponsor acknowledges that drain-complete
+  beats an external close signal.
 - The final summary prints the tasks, the sequence of sponsor decisions
-  (one per lease expiry or state change), and the ticket's closing
-  status.
+  (one per lease expiry or state change — expect several `continue`s and
+  one `drain`), and the ticket's closing status at the moment the run
+  ended.
 
 ## Replacing the mock CRM with a real one
 

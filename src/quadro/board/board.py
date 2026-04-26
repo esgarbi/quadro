@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from ..a2a.contracts import A2AResponse, FROZEN_EVENT_TYPES, validate_request_envelope
@@ -22,6 +23,9 @@ from .state_machine import (
     compute_custom_terminal_statuses,
     validate_transition,
 )
+
+if TYPE_CHECKING:
+    from .client import BoardClient
 
 
 def _event_for_transition(from_status: TaskStatus | None, to_status: TaskStatus) -> str:

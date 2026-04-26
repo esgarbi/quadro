@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
-from typing import Iterable
 
 from .types import (
     Continue,
@@ -146,9 +145,7 @@ class AllOf:
     def children(self) -> tuple[Sponsor, ...]:
         return self._sponsors
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         decisions = [_safe_propose(s, ctx, prior) for s in self._sponsors]
 
         # Stop short-circuit: any Stop turns the whole AllOf into Stop.
@@ -214,9 +211,7 @@ class AnyOf:
     def children(self) -> tuple[Sponsor, ...]:
         return self._sponsors
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         decisions = [_safe_propose(s, ctx, prior) for s in self._sponsors]
         continues = [d for d in decisions if isinstance(d, Continue)]
         drains = [d for d in decisions if isinstance(d, Drain)]
@@ -232,7 +227,9 @@ class AnyOf:
                 prior,
             )
             reason = f"{self.name}:" + " | ".join(
-                c.reason or c.lease.reason for c in continues if c.reason or c.lease.reason
+                c.reason or c.lease.reason
+                for c in continues
+                if c.reason or c.lease.reason
             )
             return Continue(lease=lease, reason=reason or self.name)
 
@@ -244,9 +241,7 @@ class AnyOf:
             if any(d.deadline is None for d in drains):
                 deadline = None
             else:
-                deadline = max(
-                    d.deadline for d in drains if d.deadline is not None
-                )
+                deadline = max(d.deadline for d in drains if d.deadline is not None)
             reasons = [d.reason for d in drains if d.reason]
             return Drain(
                 deadline=deadline,
@@ -254,11 +249,7 @@ class AnyOf:
             )
 
         # All Stop.
-        stop_reasons = [
-            d.reason
-            for d in decisions
-            if isinstance(d, Stop) and d.reason
-        ]
+        stop_reasons = [d.reason for d in decisions if isinstance(d, Stop) and d.reason]
         return Stop(
             reason=f"{self.name}:"
             + (" | ".join(stop_reasons) if stop_reasons else "all_stop")
@@ -295,9 +286,7 @@ class Priority:
     def children(self) -> tuple[Sponsor, ...]:
         return self._sponsors
 
-    def propose_lease(
-        self, ctx: SponsorContext, prior: Lease | None
-    ) -> LeaseDecision:
+    def propose_lease(self, ctx: SponsorContext, prior: Lease | None) -> LeaseDecision:
         last_stop_reason = ""
         for sponsor in self._sponsors:
             decision = _safe_propose(sponsor, ctx, prior)

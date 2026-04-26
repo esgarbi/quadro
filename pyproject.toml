@@ -17,7 +17,19 @@ Repository = "https://github.com/esgarbi/quadro"
 Documentation = "https://github.com/esgarbi/quadro#readme"
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0.0", "black>=24.0.0"]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.6.0",
+    "mypy>=1.10.0",
+    # Used by the OTel integration test; keeps the core dep-free in production.
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+]
+otel = [
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -25,12 +37,53 @@ where = ["src"]
 [tool.setuptools.package-data]
 quadro = ["py.typed"]
 
-[tool.black]
+[tool.ruff]
 line-length = 88
-target-version = ["py311"]
+target-version = "py311"
+extend-exclude = [
+    "examples/microsoft_agent_framework/newsroom/output/",
+    "examples/microsoft_agent_framework/newsroom/output_sample/",
+    "examples/microsoft_agent_framework/ordering_system/output/",
+]
+
+[tool.ruff.lint]
+# Start conservative — mirrors the previous black-only posture plus pyflakes (F) and pycodestyle (E, W).
+# Additional rule families (isort "I", pyupgrade "UP", bugbear "B") can be layered on in follow-up PRs.
+select = ["E", "F", "W"]
+ignore = [
+    "E501",  # line length handled by the formatter
+]
+
+[tool.ruff.format]
+# Keep black-equivalent defaults so the reformat delta against the previous tool stays minimal.
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.11"
+# Advisory for now — Quadro ships py.typed so we intend to honour the stubs
+# without gating merges on legacy typing gaps. Ratchet strictness upward in follow-up PRs.
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "--strict-markers"
 
+[tool.coverage.run]
+source = ["src/quadro"]
+branch = true
 
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

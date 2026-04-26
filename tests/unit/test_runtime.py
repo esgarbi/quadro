@@ -9,12 +9,7 @@ from quadro import LifecycleBuilder, LocalA2ANetwork, QuadroBoard, QuadroRuntime
 from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.sponsor import (
     AllOf,
-    AlwaysOnSponsor,
-    Continue,
     GoalSponsor,
-    Lease,
-    ScriptedSponsor,
-    Stop,
     TickBudgetSponsor,
 )
 
@@ -124,8 +119,7 @@ def test_runtime_shutdown_hooks_run_after_successful_run() -> None:
 def test_runtime_drain_max_duration_setter_is_fluent() -> None:
     from datetime import timedelta
 
-    runtime = (
-        QuadroRuntime(SqliteBoardBackend(":memory:"))
-        .drain_max_duration(timedelta(seconds=30))
+    runtime = QuadroRuntime(SqliteBoardBackend(":memory:")).drain_max_duration(
+        timedelta(seconds=30)
     )
     assert runtime._drain_max_duration == timedelta(seconds=30)

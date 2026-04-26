@@ -12,6 +12,7 @@ from ..a2a.contracts import A2ARequest, A2AResponse
 from ..a2a.dispatch import A2ATransport
 from ..board.client import BoardClient
 from ..board.records import AgentStatus
+from ..log_context import chief_cycle_scope
 from .hydration import hydrate_chief_context
 
 
@@ -170,39 +171,43 @@ class ChiefAgent:
 
     def _run_decision_cycle(self, trigger: str = "worker") -> None:
         """Single board read → hydration → policy → default routing."""
-        t0 = _time.monotonic()
-        woke_at = datetime.now(timezone.utc).isoformat()
+        cycle_id = uuid4().hex[:12]
+        with chief_cycle_scope(cycle_id):
+            t0 = _time.monotonic()
+            woke_at = datetime.now(timezone.utc).isoformat()
 
-        self._write_telemetry(status="thinking", last_woke_at=woke_at, trigger=trigger)
+            self._write_telemetry(
+                status="thinking", last_woke_at=woke_at, trigger=trigger
+            )
 
-        state = self._get_state()
-        chief_context = hydrate_chief_context(state, None)
-
-        policy_changed_board = False
-        if self._policy is not None:
-            pre_policy_tasks = _task_status_snapshot(state)
-            raw = self._policy(chief_context)
-            if asyncio.iscoroutine(raw):
-                self._write_telemetry(status="acting")
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    pool.submit(asyncio.run, raw).result()
             state = self._get_state()
             chief_context = hydrate_chief_context(state, None)
-            policy_changed_board = _task_status_snapshot(state) != pre_policy_tasks
 
-        self._write_telemetry(status="acting")
+            policy_changed_board = False
+            if self._policy is not None:
+                pre_policy_tasks = _task_status_snapshot(state)
+                raw = self._policy(chief_context)
+                if asyncio.iscoroutine(raw):
+                    self._write_telemetry(status="acting")
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        pool.submit(asyncio.run, raw).result()
+                state = self._get_state()
+                chief_context = hydrate_chief_context(state, None)
+                policy_changed_board = _task_status_snapshot(state) != pre_policy_tasks
 
-        routing_actions = self._apply_default_routing(chief_context["payload"])
-        actions_taken = routing_actions + (1 if policy_changed_board else 0)
+            self._write_telemetry(status="acting")
 
-        duration_ms = int((_time.monotonic() - t0) * 1000)
-        slept_at = datetime.now(timezone.utc).isoformat()
-        self._write_telemetry(
-            status="sleeping",
-            last_slept_at=slept_at,
-            duration_ms=duration_ms,
-            actions_taken=actions_taken,
-        )
+            routing_actions = self._apply_default_routing(chief_context["payload"])
+            actions_taken = routing_actions + (1 if policy_changed_board else 0)
+
+            duration_ms = int((_time.monotonic() - t0) * 1000)
+            slept_at = datetime.now(timezone.utc).isoformat()
+            self._write_telemetry(
+                status="sleeping",
+                last_slept_at=slept_at,
+                duration_ms=duration_ms,
+                actions_taken=actions_taken,
+            )
 
     def _apply_default_routing(self, payload: dict) -> int:
         """
