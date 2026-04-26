@@ -8,8 +8,9 @@ run is governed by an ``AllOf`` composition of three sponsors:
 1. :class:`~quadro.sponsor.QueueDepthSponsor` — primary. While there is
    backlog, keep working; when the queue empties, drain cleanly.
 2. :class:`~quadro.sponsor.LlmTokenBudgetSponsor` — the star of the show.
-   Cumulative LLM token usage is capped at ``LLM_BUDGET``; when that
-   ceiling is hit, the sponsor returns ``Stop`` and the runtime halts.
+   Cumulative LLM token usage is capped at ``LLM_BUDGET`` and checked on
+   sponsor consult boundaries. In-flight LLM turns can slightly overshoot
+   before the next consult returns ``Stop`` and the runtime halts.
 3. :class:`~quadro.sponsor.DeadlineSponsor` — belt-and-braces wall-clock
    cut-off so a jammed LLM cannot keep the loop alive indefinitely.
 
@@ -48,6 +49,7 @@ from pydantic import BaseModel  # noqa: E402
 from quadro import LifecycleBuilder, QuadroRuntime  # noqa: E402
 from quadro.board.backends.sqlite import SqliteBoardBackend  # noqa: E402
 from quadro.integrations.langchain import LangChainPipeline  # noqa: E402
+from quadro.llm_token_budget_reporting import build_ticket_records  # noqa: E402
 from quadro.sponsor import (  # noqa: E402
     AllOf,
     DeadlineSponsor,
@@ -108,9 +110,38 @@ TICKETS_PATH = HERE / "tickets.json"
 
 # ── Configuration (read from .env / process env) ──────────────────────────────
 
-LLM_BUDGET = int(os.environ.get("LLM_BUDGET", "5000"))
-POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "1.0"))
-DEADLINE_MINUTES = int(os.environ.get("DEADLINE_MINUTES", "3"))
+
+def _env_int(name: str, default: int, *, minimum: int | None = None) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        value = default
+    else:
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be an integer; got {raw!r}") from exc
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}; got {value}")
+    return value
+
+
+def _env_float(name: str, default: float, *, minimum: float | None = None) -> float:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        value = default
+    else:
+        try:
+            value = float(raw)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be a number; got {raw!r}") from exc
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}; got {value}")
+    return value
+
+
+LLM_BUDGET = _env_int("LLM_BUDGET", 5000, minimum=1)
+POLL_INTERVAL = _env_float("POLL_INTERVAL", 1.0, minimum=0.0)
+DEADLINE_MINUTES = _env_int("DEADLINE_MINUTES", 3, minimum=1)
 
 # ── Classification output schema ──────────────────────────────────────────────
 
@@ -224,37 +255,8 @@ def build_runtime_and_pipeline():
 def _ticket_records(
     final_tasks: list[dict], tickets: list[dict]
 ) -> list[dict]:
-    """Pair each posted task with its source ticket and parse the classifier output.
-
-    Order matches the order tickets were seeded in ``_seed`` — task N came
-    from ticket N. This lets the report key by T-NNN without a cross-lookup.
-    """
-    records: list[dict] = []
-    for ticket, task in zip(tickets, final_tasks, strict=False):
-        raw = task.get("output") or ""
-        urgency = category = suggested = None
-        if task.get("status") == "classified" and raw:
-            try:
-                parsed = json.loads(raw)
-                urgency = parsed.get("urgency")
-                category = parsed.get("category")
-                suggested = parsed.get("suggested_reply")
-            except (json.JSONDecodeError, AttributeError):
-                pass
-        records.append(
-            {
-                "task_id": task.get("task_id"),
-                "ticket_id": ticket["id"],
-                "subject": ticket["subject"],
-                "body": ticket["body"],
-                "status": task.get("status"),
-                "urgency": urgency,
-                "category": category,
-                "suggested_reply": suggested,
-                "raw_output": raw or None,
-            }
-        )
-    return records
+    """Build ticket records from task-linked IDs (order independent)."""
+    return build_ticket_records(final_tasks, tickets, logger=logger)
 
 
 def _write_run_json(

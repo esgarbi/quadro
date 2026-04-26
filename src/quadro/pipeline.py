@@ -395,10 +395,23 @@ class Pipeline:
             f"to auto-generate workers for stage {spec.capability!r}"
         )
 
+    def _validate_stages(self) -> None:
+        """Validate stage configuration before wiring worker/chief agents."""
+        for spec in self._stages:
+            output_schema = getattr(spec, "output_schema", None)
+            if output_schema is not None and not spec.failure_status:
+                raise ValueError(
+                    f"Stage {spec.capability!r} config is unsafe: output_schema "
+                    "requires failure_status so schema-invalid outputs cannot be "
+                    "marked successful."
+                )
+
     # ── Build ─────────────────────────────────────────────────────────────────
 
     def build(self) -> BuiltPipeline:
         """Assemble and return the runnable pipeline."""
+        self._validate_stages()
+
         from .agents.chief import ChiefAgent
         from .agents.pool import WorkerPool
 
@@ -493,6 +506,8 @@ class Pipeline:
                 )
                 if output:
                     logger.info("Chief: %s", output[:200])
+                else:
+                    logger.warning("Chief produced no output for current board snapshot")
             except Exception as exc:
                 logger.error("Chief policy error: %s", exc)
 

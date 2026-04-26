@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 from collections.abc import Callable
@@ -181,6 +182,17 @@ def _clean_llm_output(text: str) -> str:
 # a telemetry field, which is never the right trade-off.
 
 
+_TOKEN_FIELDS = (
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "input_tokens",
+    "output_tokens",
+    "input_token_count",
+    "output_token_count",
+)
+
+
 def _usage_field_as_int(obj: Any, *attrs: str) -> int:
     """Read the first integer-valued attribute/dict key from ``attrs`` off ``obj``."""
     if obj is None:
@@ -189,16 +201,40 @@ def _usage_field_as_int(obj: Any, *attrs: str) -> int:
         value = getattr(obj, name, None)
         if value is None and isinstance(obj, dict):
             value = obj.get(name)
+        if isinstance(value, bool):
+            continue
         if isinstance(value, int):
             return value
+        if isinstance(value, float) and math.isfinite(value) and value.is_integer():
+            return int(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.startswith("+"):
+                stripped = stripped[1:]
+            if re.fullmatch(r"-?\d+", stripped):
+                try:
+                    return int(stripped)
+                except ValueError:
+                    pass
     return 0
+
+
+def _has_any_token_field(payload: Any) -> bool:
+    """True when a usage payload exposes at least one known token field."""
+    for field in _TOKEN_FIELDS:
+        value = getattr(payload, field, None)
+        if value is None and isinstance(payload, dict):
+            value = payload.get(field)
+        if value is not None:
+            return True
+    return False
 
 
 def _find_usage_payload(event: Any) -> Any | None:
     """Locate a ``usage``-like payload on a MAF event, if any.
 
     Tries a short list of plausible paths in order of likelihood. The
-    first non-None hit wins.
+    first payload that contains a token field wins.
     """
     accessors = (
         lambda e: getattr(e, "usage_details", None),
@@ -212,14 +248,19 @@ def _find_usage_payload(event: Any) -> Any | None:
             None,
         ),
     )
+    first_payload: Any | None = None
     for accessor in accessors:
         try:
             payload = accessor(event)
         except Exception:  # noqa: BLE001
             payload = None
-        if payload is not None:
+        if payload is None:
+            continue
+        if first_payload is None:
+            first_payload = payload
+        if _has_any_token_field(payload):
             return payload
-    return None
+    return first_payload
 
 
 def _extract_token_usage(events: Any) -> int:
@@ -253,11 +294,20 @@ def _report_tokens(
     """Call ``reporter`` with the extracted token total, swallowing errors."""
     if reporter is None:
         return
+    payload_hits = 0
     try:
         tokens = _extract_token_usage(events)
+        payload_hits = sum(
+            1 for event in (events or []) if _find_usage_payload(event) is not None
+        )
     except Exception:  # noqa: BLE001
         tokens = 0
     if tokens <= 0:
+        if payload_hits and logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "token extraction resolved to zero despite %d usage payload(s)",
+                payload_hits,
+            )
         return
     try:
         reporter(tokens)
@@ -325,7 +375,7 @@ async def _run_chief_workflow(
     ) -> None:
         await ctx.send_message(
             AgentExecutorRequest(
-                messages=[Message("user", [board_summary])],
+                messages=[Message("user", [trigger])],
                 should_respond=True,
             )
         )
@@ -662,17 +712,24 @@ class MafPipeline(Pipeline):
                     output_json = validated.model_dump_json()
                 except Exception as exc:
                     logger.warning("Schema validation failed for %s: %s", cap, exc)
-                    if failure:
-                        board_fn(
-                            "board.update_task",
-                            {
-                                "task_id": task["task_id"],
-                                "to_status": failure,
-                                "output": raw,
-                                "notes_append": f"{cap} schema validation failed: {exc}",
-                            },
+                    failure_target = failure or "FAILED"
+                    if not failure:
+                        logger.warning(
+                            "Stage %s has output_schema but no failure_status; "
+                            "falling back to FAILED for task %s",
+                            cap,
+                            task["task_id"],
                         )
-                        return raw
+                    board_fn(
+                        "board.update_task",
+                        {
+                            "task_id": task["task_id"],
+                            "to_status": failure_target,
+                            "output": raw,
+                            "notes_append": f"{cap} schema validation failed: {exc}",
+                        },
+                    )
+                    return raw
 
             target = success or task.get("status", "COMPLETE")
             board_fn(

@@ -40,6 +40,19 @@ def test_usage_field_as_int_on_none_is_zero() -> None:
     assert _usage_field_as_int(None, "whatever") == 0
 
 
+def test_usage_field_as_int_accepts_safe_integral_numeric_shapes() -> None:
+    obj = NS(total_tokens=10.0)
+    assert _usage_field_as_int(obj, "total_tokens") == 10
+    assert _usage_field_as_int({"total_tokens": "11"}, "total_tokens") == 11
+    assert _usage_field_as_int({"total_tokens": "+12"}, "total_tokens") == 12
+
+
+def test_usage_field_as_int_rejects_ambiguous_or_boolean_values() -> None:
+    assert _usage_field_as_int({"total_tokens": 10.5}, "total_tokens") == 0
+    assert _usage_field_as_int({"total_tokens": "10.5"}, "total_tokens") == 0
+    assert _usage_field_as_int({"total_tokens": True}, "total_tokens") == 0
+
+
 # ── _find_usage_payload — tries multiple shapes ──────────────────────────────
 
 
@@ -55,6 +68,16 @@ def test_find_usage_payload_maf_usage_details_shape() -> None:
     payload = _find_usage_payload(event)
     assert payload is not None
     assert payload.input_tokens == 3
+
+
+def test_find_usage_payload_skips_empty_usage_details_and_falls_back() -> None:
+    event = NS(
+        usage_details={},
+        data=NS(usage=NS(prompt_tokens=4, completion_tokens=3)),
+    )
+    payload = _find_usage_payload(event)
+    assert payload is not None
+    assert payload.prompt_tokens == 4
 
 
 def test_find_usage_payload_raw_representation_shape() -> None:
