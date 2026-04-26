@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 460">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: ui-sans-serif, system-ui, sans-serif; }
+      .th  { font-size: 14px; font-weight: 500; fill: #3C3489; }
+      .ts  { font-size: 11px; font-weight: 400; fill: #5F5E5A; }
+      .tl  { font-size: 10px; font-weight: 500; fill: #5F5E5A; letter-spacing: 0.2px; }
+      .board-box   { fill: #EEEDFE; stroke: #534AB7; }
+      .chief-box   { fill: #E1F5EE; stroke: #0F6E56; }
+      .chief-th    { fill: #085041; }
+      .chief-ts    { fill: #0F6E56; }
+      .worker-box  { fill: #F1EFE8; stroke: #5F5E5A; }
+      .worker-th   { fill: #2C2C2A; }
+      .worker-ts   { fill: #5F5E5A; }
+      .runtime-box { fill: #E5EEFB; stroke: #2F6BC2; }
+      .runtime-th  { fill: #1B4D95; }
+      .runtime-ts  { fill: #2F6BC2; }
+      .band        { fill: #FAFAF7; stroke: none; }
+      @media (prefers-color-scheme: dark) {
+        .th  { fill: #CECBF6; }
+        .ts  { fill: #888780; }
+        .tl  { fill: #B4B2A9; }
+        .board-box   { fill: #3C3489; stroke: #AFA9EC; }
+        .chief-box   { fill: #085041; stroke: #5DCAA5; }
+        .chief-th    { fill: #9FE1CB; }
+        .chief-ts    { fill: #5DCAA5; }
+        .worker-box  { fill: #444441; stroke: #B4B2A9; }
+        .worker-th   { fill: #D3D1C7; }
+        .worker-ts   { fill: #888780; }
+        .runtime-box { fill: #163C71; stroke: #9EBEE8; }
+        .runtime-th  { fill: #C6DAF4; }
+        .runtime-ts  { fill: #9EBEE8; }
+        .band        { fill: #1A1A18; }
+      }
+    </style>
+  </defs>
+
+  <!-- Row backgrounds to hint the three layers -->
+  <rect x="0" y="16"  width="680" height="108" rx="10" class="band"/>
+  <rect x="0" y="168" width="680" height="108" rx="10" class="band"/>
+  <rect x="0" y="316" width="680" height="108" rx="10" class="band"/>
+
+  <!-- Row labels (use XML entities for the decorative glyphs so the file stays ASCII-safe) -->
+  <text class="tl" x="12" y="30"  dominant-baseline="hanging">&#9312; ENTRY &#183; sync</text>
+  <text class="tl" x="12" y="182" dominant-baseline="hanging">&#9313; LOOP  &#183; async inside, sync at boundaries</text>
+  <text class="tl" x="12" y="330" dominant-baseline="hanging">&#9314; WORK  &#183; sync contract, thread-bridged async</text>
+
+  <!-- ============ Row 1 - ENTRY (all sync) ============ -->
+
+  <!-- User application -->
+  <rect x="30" y="52" width="150" height="62" rx="8" stroke-width="0.5" class="worker-box"/>
+  <text class="th worker-th" x="105" y="78" text-anchor="middle" dominant-baseline="central">User application</text>
+  <text class="ts worker-ts" x="105" y="96" text-anchor="middle" dominant-baseline="central">caller</text>
+
+  <!-- QuadroRuntime.run -->
+  <rect x="220" y="52" width="200" height="62" rx="8" stroke-width="0.5" class="runtime-box"/>
+  <text class="th runtime-th" x="320" y="78" text-anchor="middle" dominant-baseline="central">QuadroRuntime.run</text>
+  <text class="ts runtime-ts" x="320" y="96" text-anchor="middle" dominant-baseline="central">sync entry point</text>
+
+  <!-- RunLoop.run -->
+  <rect x="460" y="52" width="190" height="62" rx="8" stroke-width="0.5" class="runtime-box"/>
+  <text class="th runtime-th" x="555" y="78" text-anchor="middle" dominant-baseline="central">RunLoop.run</text>
+  <text class="ts runtime-ts" x="555" y="96" text-anchor="middle" dominant-baseline="central">sync external API</text>
+
+  <!-- Row 1 horizontal arrows -->
+  <line x1="180" y1="83" x2="218" y2="83" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="199" y="74" text-anchor="middle">sync</text>
+
+  <line x1="420" y1="83" x2="458" y2="83" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="439" y="74" text-anchor="middle">sync</text>
+
+  <!-- Transition Row 1 -> Row 2 -->
+  <path d="M555 116 L555 146 L340 146 L340 198" fill="none" stroke="#534AB7" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="447" y="141" text-anchor="middle">asyncio.run(...)</text>
+
+  <!-- ============ Row 2 - LOOP ============ -->
+
+  <!-- RunLoop (async) -->
+  <rect x="30" y="200" width="160" height="62" rx="8" stroke-width="0.5" class="runtime-box"/>
+  <text class="th runtime-th" x="110" y="226" text-anchor="middle" dominant-baseline="central">RunLoop (async)</text>
+  <text class="ts runtime-ts" x="110" y="246" text-anchor="middle" dominant-baseline="central">awaits wake events</text>
+
+  <!-- asyncio event loop (center, dashed to hint "virtual") -->
+  <rect x="230" y="200" width="220" height="62" rx="8" stroke-width="0.5" stroke-dasharray="5 3" class="runtime-box"/>
+  <text class="th runtime-th" x="340" y="226" text-anchor="middle" dominant-baseline="central">asyncio event loop</text>
+  <text class="ts runtime-ts" x="340" y="246" text-anchor="middle" dominant-baseline="central">wait_for &#183; to_thread &#183; call_soon_threadsafe</text>
+
+  <!-- Chief.wake -->
+  <rect x="490" y="200" width="160" height="62" rx="8" stroke-width="0.5" class="chief-box"/>
+  <text class="th chief-th" x="570" y="226" text-anchor="middle" dominant-baseline="central">Chief.wake</text>
+  <text class="ts chief-ts" x="570" y="246" text-anchor="middle" dominant-baseline="central">sync listener contract</text>
+
+  <!-- RunLoop (async) <-> asyncio event loop : bidirectional async -->
+  <line x1="190" y1="223" x2="228" y2="223" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="209" y="214" text-anchor="middle">async</text>
+  <line x1="228" y1="239" x2="190" y2="239" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- asyncio event loop <-> Chief.wake : sync bridge -->
+  <line x1="450" y1="223" x2="488" y2="223" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="469" y="214" text-anchor="middle">sync</text>
+  <line x1="488" y1="239" x2="450" y2="239" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- Transition Row 2 -> Row 3 -->
+  <path d="M340 262 L340 294 L120 294 L120 346" fill="none" stroke="#1D9E75" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="230" y="289" text-anchor="middle">A2A dispatch (sync)</text>
+
+  <!-- ============ Row 3 - WORK ============ -->
+
+  <!-- Worker.execute -->
+  <rect x="40" y="348" width="160" height="62" rx="8" stroke-width="0.5" class="worker-box"/>
+  <text class="th worker-th" x="120" y="374" text-anchor="middle" dominant-baseline="central">Worker.execute</text>
+  <text class="ts worker-ts" x="120" y="394" text-anchor="middle" dominant-baseline="central">sync contract</text>
+
+  <!-- Board (sqlite) -->
+  <rect x="240" y="348" width="200" height="62" rx="8" stroke-width="0.5" class="board-box"/>
+  <text class="th" x="340" y="374" text-anchor="middle" dominant-baseline="central">Board (sqlite)</text>
+  <text class="ts" x="340" y="394" text-anchor="middle" dominant-baseline="central">single source of truth</text>
+
+  <!-- execute_fn -->
+  <rect x="480" y="348" width="170" height="62" rx="8" stroke-width="0.5" class="worker-box"/>
+  <text class="th worker-th" x="565" y="374" text-anchor="middle" dominant-baseline="central">execute_fn</text>
+  <text class="ts worker-ts" x="565" y="394" text-anchor="middle" dominant-baseline="central">sync or thread-bridged async</text>
+
+  <!-- Worker <-> Board -->
+  <line x1="200" y1="371" x2="238" y2="371" stroke="#1D9E75" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="219" y="362" text-anchor="middle">sync</text>
+  <line x1="238" y1="387" x2="200" y2="387" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- Worker -> execute_fn -->
+  <line x1="440" y1="371" x2="478" y2="371" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="459" y="362" text-anchor="middle">call</text>
+  <line x1="478" y1="387" x2="440" y2="387" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- Legend -->
+  <line x1="40" y1="440" x2="70" y2="440" stroke="#1D9E75" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="76" y="443" dominant-baseline="central">write / dispatch</text>
+  <line x1="200" y1="440" x2="230" y2="440" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text class="ts" x="236" y="443" dominant-baseline="central">signal / read</text>
+  <line x1="360" y1="440" x2="390" y2="440" stroke="#534AB7" stroke-width="1" marker-end="url(#arrow)"/>
+  <text class="ts" x="396" y="443" dominant-baseline="central">control flow</text>
+</svg>

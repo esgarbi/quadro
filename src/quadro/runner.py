@@ -442,7 +442,7 @@ class RunLoop:
                 self._set_drain_flag(True)
                 self._publish_status(draining=True, drain_deadline=drain_deadline)
 
-        last_ombudsman = time.monotonic()
+        last_heartbeat_mono = time.monotonic()
         cycle = 0
 
         while True:
@@ -466,8 +466,8 @@ class RunLoop:
                     logger.info("RunLoop: drain deadline hit; forcing stop")
                     return self._finalise(state)
                 cycle += 1
-                self._maybe_nudge_ombudsman(last_ombudsman)
-                last_ombudsman = self._advance_ombudsman_clock(last_ombudsman)
+                self._maybe_tick_heartbeat(last_heartbeat_mono)
+                last_heartbeat_mono = self._advance_heartbeat_clock(last_heartbeat_mono)
                 continue
 
             # ── Normal (non-drain) lifecycle ─────────────────────────────────
@@ -486,8 +486,10 @@ class RunLoop:
                             draining=True, drain_deadline=drain_deadline
                         )
                         cycle += 1
-                        self._maybe_nudge_ombudsman(last_ombudsman)
-                        last_ombudsman = self._advance_ombudsman_clock(last_ombudsman)
+                        self._maybe_tick_heartbeat(last_heartbeat_mono)
+                        last_heartbeat_mono = self._advance_heartbeat_clock(
+                            last_heartbeat_mono
+                        )
                         continue
                     case Continue(lease=lease):
                         active_lease = lease
@@ -495,8 +497,8 @@ class RunLoop:
                         self._publish_status(active_lease=active_lease, draining=False)
 
             cycle += 1
-            self._maybe_nudge_ombudsman(last_ombudsman)
-            last_ombudsman = self._advance_ombudsman_clock(last_ombudsman)
+            self._maybe_tick_heartbeat(last_heartbeat_mono)
+            last_heartbeat_mono = self._advance_heartbeat_clock(last_heartbeat_mono)
 
         # Unreachable — loop returns via _finalise.
 
@@ -509,7 +511,19 @@ class RunLoop:
             return None
         return _utc_now() + self._drain_max_duration
 
-    def _maybe_nudge_ombudsman(self, last: float) -> None:
+    def _maybe_tick_heartbeat(self, last: float) -> None:
+        """Fire the slow heartbeat if ``_ombudsman_interval`` has elapsed.
+
+        One timer drives two jobs on the same cadence:
+
+        1. Nudge the Chief with ``trigger="ombudsman"`` so it wakes even when
+           no worker has posted a wake envelope (fallback heartbeat).
+        2. Run the Ombudsman's stale-task scan, if an instance was attached.
+
+        The knob is still called ``ombudsman_interval`` / ``ombudsman_every``
+        for backward compatibility; internally we treat it as the shared
+        heartbeat cadence.
+        """
         if self._ombudsman_interval <= 0:
             self._chief.nudge(trigger="ombudsman")
             if self._ombudsman_instance is not None:
@@ -517,12 +531,12 @@ class RunLoop:
             return
         now = time.monotonic()
         if now - last >= self._ombudsman_interval:
-            logger.debug("RunLoop ombudsman: nudging chief")
+            logger.debug("RunLoop heartbeat: nudging chief and ombudsman")
             self._chief.nudge(trigger="ombudsman")
             if self._ombudsman_instance is not None:
                 self._ombudsman_instance.nudge()
 
-    def _advance_ombudsman_clock(self, last: float) -> float:
+    def _advance_heartbeat_clock(self, last: float) -> float:
         now = time.monotonic()
         if self._ombudsman_interval <= 0 or now - last >= self._ombudsman_interval:
             return now

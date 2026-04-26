@@ -6,24 +6,9 @@ have a single reference.
 
 ## The four boundaries
 
-```text
-+--------------------+   sync   +---------------------+   sync   +-----------+
-|  User application  | -------> |  QuadroRuntime.run  | -------> |  RunLoop  |
-+--------------------+          +---------------------+          +-----------+
-                                                                       |
-                                                            asyncio.run (Phase 2)
-                                                                       v
-+--------------------+  async   +---------------------+         +---------------+
-|   RunLoop (async)  | <------> |  asyncio event loop | <-----> | Chief.wake    |
-+--------------------+          +---------------------+  sync   +---------------+
-                                                                       |
-                                                              A2A call (sync)
-                                                                       v
-+--------------------+  sync    +---------------------+         +---------------+
-|   Worker execute   | -------> |  Board (sqlite)     |         | execute_fn    |
-+--------------------+          +---------------------+         |  may be async |
-                                                                +---------------+
-```
+<p align="center">
+  <img src="../../assets/diagram_concurrency.svg" alt="Concurrency diagram: user → runtime → runloop; async loop bridging sponsor and chief; worker, board, and execute_fn" width="680">
+</p>
 
 1. **User ↔ Runtime** — synchronous. `QuadroRuntime.run()` and
    `RunLoop.run()` are sync entry points. Callers who happen to live
