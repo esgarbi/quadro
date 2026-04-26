@@ -551,8 +551,6 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, test conventions, and archit
 
 ---
 
-> Personal project · v0.1 reference implementation · Contributions welcome · Maintenance is best-effort
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
