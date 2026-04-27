@@ -60,12 +60,11 @@ else
     echo "[entrypoint] OPENAI_MODEL_ID=${OPENAI_MODEL_ID}"
 fi
 
-# ── 2. Clean slate — remove stale db ──────────────────────────────────────────
-DB_PATH="/app/examples/microsoft_agent_framework/newsroom/newsroom.db"
-if [ -f "${DB_PATH}" ]; then
-    echo "[entrypoint] Removing stale newsroom.db"
-    rm -f "${DB_PATH}"
-fi
+# ── 2. Clean slate — remove stale db files ────────────────────────────────────
+EXAMPLE_DIR="/app/examples/microsoft_agent_framework/newsroom"
+DB_PATH="${EXAMPLE_DIR}/newsroom.db"
+echo "[entrypoint] Removing stale *.db files in ${EXAMPLE_DIR}"
+rm -f "${EXAMPLE_DIR}"/*.db 2>/dev/null || true
 
 # ── 3. Start Board UI in background ───────────────────────────────────────────
 echo "[entrypoint] Starting Board UI on port ${UI_PORT} ..."

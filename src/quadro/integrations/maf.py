@@ -18,6 +18,10 @@ Provides MAF-specific extensions on top of the framework-agnostic
 Requires ``agent-framework`` as a runtime dependency.
 The core ``quadro`` package remains zero-dependency.
 
+Migration note:
+The existing adapter API remains backward compatible, while runtime
+plugins are now available for native Microsoft Agent Framework entrypoints.
+
 Usage::
 
     from quadro.integrations.maf import llm_call, tools_from_lifecycle, MafPipeline
@@ -42,6 +46,7 @@ from ..pipeline import (
     ToolDescriptor,
     generate_tool_descriptors,
 )
+from ..runtime_plugins.maf_workflow import MafWorkflowRuntime
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Optional agent_framework import
@@ -570,6 +575,12 @@ class MafPipeline(Pipeline):
         super().__init__(board)
         self._client_factory: Callable | None = None
         self._token_reporter: Callable[[int], None] | None = None
+        self._maf_runtime = MafWorkflowRuntime(
+            client_factory_getter=lambda: self._client_factory or _get_client_factory(),
+            chief_name_prefix_getter=lambda: self._chief_name_prefix,
+            token_reporter_getter=lambda: self._token_reporter,
+        )
+        self.with_framework_runtime(self._maf_runtime)
 
     def llm(
         self,
@@ -592,6 +603,7 @@ class MafPipeline(Pipeline):
         tokens across the run.
         """
         self._token_reporter = token_reporter
+        self.runtime_observability(token_reporter=token_reporter)
 
         if client_factory is not None:
             self._client_factory = client_factory
@@ -628,6 +640,9 @@ class MafPipeline(Pipeline):
                 "tool_name",
                 "prompt",
                 "output_schema",
+                "workflow",
+                "graph",
+                "supervisor",
             }
         }
         return MafStageSpec(capability, **maf_fields)

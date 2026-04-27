@@ -7,6 +7,11 @@ Each function is an async coroutine with the standard Quadro worker signature:
 Article creation is handled by ArticleProducer (see producer.py).
 The chief policy dispatches UNASSIGNED tasks mechanically, then uses the LLM
 to route articles through the pipeline stages.
+
+The same stage implementations are also reused by the native
+``stage(workflow=...)`` path (see ``workflows.py``), which wraps these
+execute_fns and captures their intended board transition payload so Quadro's
+runtime wrapper can remain the single transition commit point.
 """
 
 from __future__ import annotations

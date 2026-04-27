@@ -54,11 +54,21 @@ else
 fi
 
 # ── 2. Clean slate ────────────────────────────────────────────────────────────
-DB_PATH="/app/examples/microsoft_agent_framework/newsroom/newsroom.db"
-if [ -f "${DB_PATH}" ]; then
-    echo "[debug-entrypoint] Removing stale newsroom.db"
-    rm -f "${DB_PATH}"
-fi
+EXAMPLE_DIR="/app/examples/microsoft_agent_framework/newsroom"
+DB_PATH="${EXAMPLE_DIR}/newsroom.db"
+echo "[debug-entrypoint] Removing stale *.db files in ${EXAMPLE_DIR}"
+rm -f "${EXAMPLE_DIR}"/*.db 2>/dev/null || true
+
+# In debug wait mode, main_pipeline.py is paused at debugpy attach and won't
+# create the DB immediately. Pre-initialize the board DB so the UI can start.
+cd "${EXAMPLE_DIR}"
+python - <<'PY'
+from runtime import build_runtime
+
+# Minimal bootstrap: creates SQLite board file/schema + goal seed.
+build_runtime(target_articles=1)
+print("[debug-entrypoint] Pre-initialized newsroom.db for Board UI")
+PY
 
 # ── 3. Start Board UI in background ──────────────────────────────────────────
 echo "[debug-entrypoint] Starting Board UI on port ${UI_PORT} ..."
@@ -76,8 +86,6 @@ ARGS="--target ${NEWSROOM_TARGET} --cycles ${NEWSROOM_CYCLES}"
 if [ -n "${NEWSROOM_CHOREOGRAPHY}" ]; then
     ARGS="${ARGS} --choreography ${NEWSROOM_CHOREOGRAPHY}"
 fi
-
-cd /app/examples/microsoft_agent_framework/newsroom
 
 if [ "$DEBUGPY_WAIT" = "1" ]; then
     echo "[debug-entrypoint] debugpy listening on 0.0.0.0:${DEBUGPY_PORT} — WAITING for debugger to attach ..."

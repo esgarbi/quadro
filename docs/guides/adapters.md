@@ -41,6 +41,30 @@ Nothing else has to be overridden; the rest of the pipeline
 construction (`.workers()`, `.capacity()`, `.wakes()`, `.stage()`,
 `.chief()`, `.build()`) is shared.
 
+### Runtime plugins (control-plane direction)
+
+Quadro also supports a runtime-plugin seam under
+`src/quadro/runtime_plugins/` for native framework entrypoints (for
+example, `stage(workflow=...)` for Microsoft Agent Framework workflows).
+The ownership model is explicit:
+
+- Quadro core owns governance (`Lifecycle`, `Sponsor/Lease`, drain/stop,
+  board state transitions, and policy decisions).
+- Framework runtimes own execution internals (workflow/graph execution,
+  tool semantics, and framework-specific events).
+- Runtime plugins only translate framework behavior into Quadro's
+  normalized observability envelope (`quadro.runtime_event.v1`) and
+  optional token reporting (`runtime.meters.report_llm_tokens`).
+
+Backwards compatibility is preserved: existing adapter hooks remain
+supported, and runtime plugins are additive so adapters can migrate
+incrementally.
+
+The Microsoft Agent Framework Newsroom example demonstrates both paths:
+`main_pipeline.py` uses native `stage(workflow=...)`, while `main.py`
+keeps the manual WorkerPool/Chief wiring as a compatibility/reference
+implementation.
+
 ### 2. `client_factory` — pluggable LLM provider
 
 The Microsoft Agent Framework adapter at `src/quadro/integrations/maf.py`

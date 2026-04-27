@@ -19,13 +19,16 @@ import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .dispatch import (
     acknowledge_task,
     dispatch_batch,
     get_acknowledged,
 )
+
+if TYPE_CHECKING:
+    from .runtime_plugins.base import FrameworkRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,9 @@ class StageSpec:
     failure_status: str | None = None
     max_working_time: float | None = None
     tool_name: str | None = None
+    workflow: Any | None = None
+    graph: Any | None = None
+    supervisor: Any | None = None
 
     def __post_init__(self) -> None:
         if self.active_status is None:
@@ -291,6 +297,9 @@ class Pipeline:
         self._chief_goal_key: str | None = None
         self._chief_extra_tools: list | None = None
         self._chief_name_prefix: str = "chief"
+        self._framework_runtimes: list[FrameworkRuntime] = []
+        self._runtime_token_reporter: Callable[[int], None] | None = None
+        self._runtime_telemetry_sink: Callable[[dict[str, Any]], None] | None = None
 
     def workers(self, n: int) -> Pipeline:
         """Set number of worker agents per capability."""
@@ -360,6 +369,22 @@ class Pipeline:
         self._chief_name_prefix = name_prefix
         return self
 
+    def with_framework_runtime(self, runtime: "FrameworkRuntime") -> Pipeline:
+        """Register a framework runtime plugin for native delegation paths."""
+        self._framework_runtimes.append(runtime)
+        return self
+
+    def runtime_observability(
+        self,
+        *,
+        token_reporter: Callable[[int], None] | None = None,
+        telemetry_sink: Callable[[dict[str, Any]], None] | None = None,
+    ) -> Pipeline:
+        """Configure telemetry/token sinks used by runtime plugins."""
+        self._runtime_token_reporter = token_reporter
+        self._runtime_telemetry_sink = telemetry_sink
+        return self
+
     # ── Abstract hooks ────────────────────────────────────────────────────────
 
     def _decorate_tools(self, descriptors: list[ToolDescriptor]) -> list:
@@ -406,6 +431,68 @@ class Pipeline:
                     "marked successful."
                 )
 
+    def _runtime_for_stage(self, spec: StageSpec) -> "FrameworkRuntime | None":
+        """Return the first runtime plugin that can execute *spec*."""
+        for runtime in self._framework_runtimes:
+            try:
+                if runtime.can_handle(spec):
+                    return runtime
+            except Exception:  # noqa: BLE001
+                continue
+        return None
+
+    def _primary_runtime(self) -> "FrameworkRuntime | None":
+        """Return the first registered runtime plugin, if any."""
+        if not self._framework_runtimes:
+            return None
+        return self._framework_runtimes[0]
+
+    def _make_runtime_execute_fn(
+        self,
+        spec: StageSpec,
+        runtime: "FrameworkRuntime",
+    ) -> Callable:
+        """Generate execute_fn that delegates one stage turn to a runtime plugin."""
+
+        async def _execute(context: dict, board_fn: Callable[[str, dict], dict]) -> Any:
+            from .runtime_plugins.base import RuntimeContext
+            from .runtime_plugins.telemetry import emit_runtime_event
+
+            task = context["payload"]["task"]
+            result = await runtime.run_stage(
+                RuntimeContext(
+                    stage=spec,
+                    task=task,
+                    context=context,
+                    board_fn=board_fn,
+                    token_reporter=self._runtime_token_reporter,
+                    telemetry_sink=self._runtime_telemetry_sink,
+                )
+            )
+
+            if result.token_total > 0 and self._runtime_token_reporter is not None:
+                self._runtime_token_reporter(result.token_total)
+
+            if result.telemetry and self._runtime_telemetry_sink is not None:
+                for event in result.telemetry:
+                    emit_runtime_event(self._runtime_telemetry_sink, event)
+
+            target = result.status or spec.success_status or task.get("status", "COMPLETE")
+            payload = {
+                "task_id": task["task_id"],
+                "to_status": target,
+            }
+            if result.output is not None:
+                payload["output"] = result.output
+            if result.notes_append:
+                payload["notes_append"] = result.notes_append
+            if result.update_fields:
+                payload.update(result.update_fields)
+            board_fn("board.update_task", payload)
+            return result.output
+
+        return _execute
+
     # ── Build ─────────────────────────────────────────────────────────────────
 
     def build(self) -> BuiltPipeline:
@@ -427,7 +514,13 @@ class Pipeline:
         stage_map: dict[str, tuple[str, str | None]] = {}
 
         for spec in self._stages:
-            fn = spec.execute_fn or self._make_auto_execute_fn(spec)
+            runtime = self._runtime_for_stage(spec) if spec.execute_fn is None else None
+            if spec.execute_fn is not None:
+                fn = spec.execute_fn
+            elif runtime is not None:
+                fn = self._make_runtime_execute_fn(spec, runtime)
+            else:
+                fn = self._make_auto_execute_fn(spec)
             pool_builder = pool_builder.add(
                 spec.capability,
                 fn,
@@ -481,7 +574,11 @@ class Pipeline:
                     network=network,
                     worker_registry=pool.registry,
                 )
-                tools = self._decorate_tools(descriptors)
+                runtime = self._primary_runtime()
+                if runtime is not None:
+                    tools = runtime.decorate_tools(descriptors)
+                else:
+                    tools = self._decorate_tools(descriptors)
             else:
                 tools = []
 
@@ -499,11 +596,20 @@ class Pipeline:
             )
 
             try:
-                output = await self._run_chief_llm_turn(
-                    board_summary,
-                    instructions,
-                    tools,
-                )
+                runtime = self._primary_runtime()
+                if runtime is not None:
+                    output = await runtime.run_chief_turn(
+                        board_summary,
+                        instructions,
+                        tools,
+                        chief_name_prefix=self._chief_name_prefix,
+                    )
+                else:
+                    output = await self._run_chief_llm_turn(
+                        board_summary,
+                        instructions,
+                        tools,
+                    )
                 if output:
                     logger.info("Chief: %s", output[:200])
                 else:

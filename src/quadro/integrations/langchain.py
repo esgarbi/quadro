@@ -19,6 +19,10 @@ Provides LangChain-specific extensions on top of the framework-agnostic
 Requires ``langchain-core`` and ``langchain-openai`` as runtime
 dependencies.  The core ``quadro`` package remains zero-dependency.
 
+Migration note:
+The existing adapter API remains backward compatible, while runtime
+plugins are now available for native LangChain entrypoints.
+
 Usage::
 
     from quadro.integrations.langchain import (
@@ -696,6 +700,9 @@ class LangChainPipeline(Pipeline):
                 "tool_name",
                 "prompt",
                 "output_schema",
+                "workflow",
+                "graph",
+                "supervisor",
             }
         }
         return LangChainStageSpec(capability, **lc_fields)

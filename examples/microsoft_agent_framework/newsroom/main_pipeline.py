@@ -29,7 +29,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from quadro.integrations.maf import MafPipeline
 
-from agents import run_ideation, run_research, run_review, run_writing
 from runtime import (
     CHIEF_URL,
     CHOREOGRAPHIES,
@@ -44,6 +43,12 @@ from runtime import (
     mode_label,
     print_final_summary,
     start_article_producer,
+)
+from workflows import (
+    build_ideation_workflow,
+    build_research_workflow,
+    build_review_workflow,
+    build_writing_workflow,
 )
 
 logging.basicConfig(
@@ -69,38 +74,40 @@ def main(
         lifecycle=lifecycle,
     )
 
-    # ── Pipeline — same worker behavior as main.py, less framework wiring ─────
-    # Explicit execute_fns own their LLM calls in agents.py. MafPipeline.llm()
-    # configures the MAF chief and any prompt/schema auto-stages added later.
+    # ── Pipeline — native stage(workflow=...) entrypoints via MafWorkflowRuntime ─
     pipeline = (
         MafPipeline(runtime.board)
-        .llm(api_key_env="OPENAI_API_KEY", model_env="OPENAI_MODEL_ID")
+        .llm(
+            api_key_env="OPENAI_API_KEY",
+            model_env="OPENAI_MODEL_ID",
+            token_reporter=runtime.meters.report_llm_tokens,
+        )
         .workers(WORKER_COUNT)
         .wakes(CHIEF_URL)
         .stage(
             "ideation",
-            execute_fn=run_ideation,
+            workflow=build_ideation_workflow,
             active_status="ideating",
             tool_name="advance_to_ideation",
             max_working_time=5.0,
         )
         .stage(
             "research",
-            execute_fn=run_research,
+            workflow=build_research_workflow,
             active_status="researching",
             tool_name="advance_to_research",
             max_working_time=5.0,
         )
         .stage(
             "writing",
-            execute_fn=run_writing,
+            workflow=build_writing_workflow,
             active_status="writing",
             tool_name="advance_to_writing",
             max_working_time=5.0,
         )
         .stage(
             "review",
-            execute_fn=run_review,
+            workflow=build_review_workflow,
             active_status="reviewing",
             tool_name="advance_to_review",
             max_working_time=5.0,
