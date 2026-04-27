@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from dotenv import load_dotenv
 
@@ -55,6 +56,10 @@ from quadro.sponsor import (  # noqa: E402
     DeadlineSponsor,
     LlmTokenBudgetSponsor,
     QueueDepthSponsor,
+)
+from supervisor_runtime import (  # noqa: E402
+    build_classifier_supervisor,
+    ensure_native_supervisor_available,
 )
 
 logging.basicConfig(
@@ -106,6 +111,8 @@ logger = logging.getLogger("llm_token_budget")
 
 HERE = Path(__file__).parent
 DB_PATH = HERE / "triage.db"
+STAGE_MODE_ENV = "LC_STAGE_MODE"
+_STAGE_MODES = frozenset({"native", "compat"})
 TICKETS_PATH = HERE / "tickets.json"
 
 # ── Configuration (read from .env / process env) ──────────────────────────────
@@ -210,16 +217,28 @@ def _seed(runtime: QuadroRuntime, tickets: list[dict]) -> None:
 # ── Pipeline assembly ─────────────────────────────────────────────────────────
 
 
-def build_runtime_and_pipeline():
-    if DB_PATH.exists():
-        DB_PATH.unlink()
+def _resolve_stage_mode(mode: str | None) -> str:
+    selected = (mode or os.environ.get(STAGE_MODE_ENV, "native")).strip().lower()
+    if selected not in _STAGE_MODES:
+        allowed = ", ".join(sorted(_STAGE_MODES))
+        raise ValueError(f"Invalid stage mode {selected!r}; expected one of: {allowed}")
+    return selected
 
-    runtime = QuadroRuntime(SqliteBoardBackend(str(DB_PATH))).with_profiles(
-        profile_resolver={"classify": "ticket"},
-        custom_profiles={"ticket": TICKET_LIFECYCLE},
-    )
 
-    pipeline = (
+def _classify_stage_config(stage_mode: str) -> dict[str, object]:
+    if stage_mode == "native":
+        return {"supervisor": lambda: build_classifier_supervisor(HERE / "prompts" / "classify.md")}
+    if stage_mode == "compat":
+        return {
+            "prompt": HERE / "prompts" / "classify.md",
+            "output_schema": TicketTag,
+        }
+    raise ValueError(f"Unknown stage mode: {stage_mode}")
+
+
+def build_pipeline_builder(runtime: QuadroRuntime, *, stage_mode: str) -> LangChainPipeline:
+    classify_cfg = _classify_stage_config(stage_mode)
+    return (
         LangChainPipeline(runtime.board)
         .llm(
             api_key_env="OPENAI_API_KEY",
@@ -235,16 +254,30 @@ def build_runtime_and_pipeline():
         .wakes("a2a://chief")
         .stage(
             "classify",
-            prompt=HERE / "prompts" / "classify.md",
-            output_schema=TicketTag,
             active_status="classifying",
             success_status="classified",
             failure_status="classify_failed",
             max_working_time=60.0,
+            **classify_cfg,
         )
         .chief(prompt=HERE / "prompts" / "chief.md", goal_key="tickets_goal")
-        .build()
     )
+
+
+def build_runtime_and_pipeline(*, stage_mode: str = "native"):
+    if DB_PATH.exists():
+        DB_PATH.unlink()
+
+    runtime = QuadroRuntime(SqliteBoardBackend(str(DB_PATH))).with_profiles(
+        profile_resolver={"classify": "ticket"},
+        custom_profiles={"ticket": TICKET_LIFECYCLE},
+    )
+
+    mode = _resolve_stage_mode(stage_mode)
+    if mode == "native":
+        # Fail fast once before workers spin up to avoid per-task crashes/drain.
+        ensure_native_supervisor_available()
+    pipeline = build_pipeline_builder(runtime, stage_mode=mode).build()
 
     return runtime, pipeline
 
@@ -328,12 +361,27 @@ def main(argv: list[str] | None = None) -> int:
             "always produces artefacts."
         ),
     )
+    parser.add_argument(
+        "--stage-mode",
+        choices=sorted(_STAGE_MODES),
+        default=None,
+        help=(
+            "Classifier stage mode. "
+            "'native' (default) uses stage(supervisor=...) via LangGraph runtime plugin; "
+            "'compat' uses the prior prompt/schema adapter path."
+        ),
+    )
     args = parser.parse_args(argv)
+    stage_mode = _resolve_stage_mode(args.stage_mode)
 
     tickets = _load_tickets()
     total_tickets = len(tickets)
 
-    runtime, pipeline = build_runtime_and_pipeline()
+    try:
+        runtime, pipeline = build_runtime_and_pipeline(stage_mode=stage_mode)
+    except RuntimeError as exc:
+        logger.error("%s", exc)
+        return 2
 
     runtime.put_data(
         "tickets_goal",
@@ -388,7 +436,8 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     logger.info(
-        "LLM token-budget demo — tickets=%d  budget=%d  model=%s  endpoint=%s",
+        "LLM token-budget demo — mode=%s  tickets=%d  budget=%d  model=%s  endpoint=%s",
+        stage_mode,
         total_tickets,
         LLM_BUDGET,
         os.environ.get("OPENAI_MODEL_ID", "<unset>"),

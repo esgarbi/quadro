@@ -114,6 +114,42 @@ def test_pipeline_runtime_delegation_updates_task_and_observability() -> None:
     assert telemetry_events and telemetry_events[0]["event_type"] == "runtime.test"
 
 
+def test_pipeline_runtime_delegation_with_graph_entrypoint() -> None:
+    board = QuadroBoard(SqliteBoardBackend(":memory:"), network=LocalA2ANetwork())
+
+    class _GraphRuntime(_DummyRuntime):
+        def can_handle(self, spec: StageSpec) -> bool:
+            if self.handled_specs is not None:
+                self.handled_specs.append(spec)
+            return spec.graph is not None
+
+    graph_runtime = _GraphRuntime(handled_specs=[])
+    pipeline = (
+        _DummyPipeline(board)
+        .with_framework_runtime(graph_runtime)
+        .stage("classify", active_status="classifying", graph=object())
+        .chief(prompt="chief prompt")
+    )
+    built = pipeline.build()
+    worker = built.pool.agents[0]
+    execute = worker.execute_fn
+
+    board_updates: list[dict] = []
+
+    def _board_fn(intent: str, payload: dict) -> dict:
+        if intent == "board.update_task":
+            board_updates.append(payload)
+            return {"task": payload}
+        return {}
+
+    task = {"task_id": "task-graph", "status": "classifying", "notes": ["hello"]}
+    output = asyncio.run(execute({"payload": {"task": task}}, _board_fn))
+
+    assert output == {"ok": True}
+    assert graph_runtime.handled_specs and graph_runtime.handled_specs[0].graph is not None
+    assert board_updates and board_updates[0]["to_status"] == "classified"
+
+
 def test_stage_spec_preserves_native_runtime_entrypoints() -> None:
     board = QuadroBoard(SqliteBoardBackend(":memory:"), network=LocalA2ANetwork())
     pipeline = _DummyPipeline(board).stage(

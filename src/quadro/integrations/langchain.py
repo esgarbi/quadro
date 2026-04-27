@@ -52,6 +52,7 @@ from ..pipeline import (
     ToolDescriptor,
     generate_tool_descriptors,
 )
+from ..runtime_plugins.langchain import LangChainRuntime
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Optional langchain imports
@@ -641,6 +642,12 @@ class LangChainPipeline(Pipeline):
         super().__init__(board)
         self._client_factory: Callable | None = None
         self._token_reporter: Callable[[int], None] | None = None
+        self._langchain_runtime = LangChainRuntime(
+            client_factory_getter=lambda: self._client_factory or _get_client_factory(),
+            chief_name_prefix_getter=lambda: self._chief_name_prefix,
+            token_reporter_getter=lambda: self._token_reporter,
+        )
+        self.with_framework_runtime(self._langchain_runtime)
 
     def llm(
         self,
@@ -664,6 +671,7 @@ class LangChainPipeline(Pipeline):
         tokens across the run.
         """
         self._token_reporter = token_reporter
+        self.runtime_observability(token_reporter=token_reporter)
 
         if client_factory is not None:
             self._client_factory = client_factory

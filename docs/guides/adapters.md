@@ -65,6 +65,12 @@ The Microsoft Agent Framework Newsroom example demonstrates both paths:
 keeps the manual WorkerPool/Chief wiring as a compatibility/reference
 implementation.
 
+LangChain now supports native runtime stages as well via
+`stage(supervisor=...)` and `stage(graph=...)` when using
+`LangChainPipeline`. See
+`examples/langchain/supervisor_stage_minimal/main.py` for a minimal
+governed supervisor proof under Sponsor/Lease.
+
 ### 2. `client_factory` — pluggable LLM provider
 
 The Microsoft Agent Framework adapter at `src/quadro/integrations/maf.py`
