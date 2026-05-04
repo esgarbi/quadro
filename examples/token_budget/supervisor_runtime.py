@@ -66,9 +66,17 @@ def _normalize_classifier_output(raw_text: str) -> tuple[str, str, str | None]:
     try:
         parsed = json.loads(cleaned)
     except Exception:  # noqa: BLE001
-        return cleaned or raw_text, "classify_failed", "Supervisor returned invalid JSON"
+        return (
+            cleaned or raw_text,
+            "classify_failed",
+            "Supervisor returned invalid JSON",
+        )
     if not isinstance(parsed, dict):
-        return cleaned or raw_text, "classify_failed", "Supervisor returned non-object JSON"
+        return (
+            cleaned or raw_text,
+            "classify_failed",
+            "Supervisor returned non-object JSON",
+        )
 
     urgency = parsed.get("urgency")
     category = parsed.get("category")
@@ -107,7 +115,9 @@ def ensure_native_supervisor_available() -> None:
         from langchain.agents import create_agent as _unused  # noqa: F401
     except ImportError as exc:  # pragma: no cover - runtime dependency guard
         try:
-            _legacy_unused = getattr(import_module("langgraph.prebuilt"), "create_react_agent")
+            _legacy_unused = getattr(
+                import_module("langgraph.prebuilt"), "create_react_agent"
+            )
             _ = _legacy_unused
         except Exception:
             raise RuntimeError(
@@ -123,7 +133,9 @@ def build_classifier_supervisor(prompt_path: str | Path):
         from langchain.agents import create_agent
     except ImportError:
         create_agent = None
-        create_react_agent = getattr(import_module("langgraph.prebuilt"), "create_react_agent")
+        create_react_agent = getattr(
+            import_module("langgraph.prebuilt"), "create_react_agent"
+        )
 
     from langchain_core.tools import tool
 
@@ -161,12 +173,16 @@ def build_classifier_supervisor(prompt_path: str | Path):
     class _SupervisorAdapter:
         async def ainvoke(self, payload: Any) -> dict[str, Any]:
             ticket_text = _extract_ticket_text(payload)
-            state = await agent.ainvoke({"messages": [{"role": "user", "content": ticket_text}]})
+            state = await agent.ainvoke(
+                {"messages": [{"role": "user", "content": ticket_text}]}
+            )
             messages = state.get("messages") if isinstance(state, dict) else None
             if not isinstance(messages, list):
                 messages = []
             final_text = (
-                _flatten_content(getattr(messages[-1], "content", "")) if messages else ""
+                _flatten_content(getattr(messages[-1], "content", ""))
+                if messages
+                else ""
             )
             output_json, status, notes_append = _normalize_classifier_output(final_text)
             stage_result: dict[str, Any] = {

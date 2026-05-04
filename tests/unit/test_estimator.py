@@ -47,7 +47,12 @@ class FakeReasoner:
 
 
 def _profile():
-    return LifecycleBuilder().phase("UNASSIGNED", "working").phase("working", "done").build()
+    return (
+        LifecycleBuilder()
+        .phase("UNASSIGNED", "working")
+        .phase("working", "done")
+        .build()
+    )
 
 
 def _saga():
@@ -265,9 +270,7 @@ def test_format_omits_dollar_lines_without_pricing() -> None:
     from quadro.estimator.calibration import Calibration, TaskCalibration
 
     estimator = Estimator(
-        calibration=Calibration(
-            [TaskCalibration("a", 10), TaskCalibration("b", 20)]
-        )
+        calibration=Calibration([TaskCalibration("a", 10), TaskCalibration("b", 20)])
     )
     output = estimator.format()
     assert "Total dollars" not in output

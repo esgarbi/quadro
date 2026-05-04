@@ -71,15 +71,15 @@ class SagaState:
     """
 
     saga_name: str
-    pc: str | None                     # next step name, or None if saga is complete
+    pc: str | None  # next step name, or None if saga is complete
     idempotency_key: str | None = None
     completed_steps: dict[str, Any] = field(default_factory=dict)
-    evidence: dict[str, Any] = field(default_factory=dict)        # used in milestone C+
-    stamps: list[dict[str, Any]] = field(default_factory=list)    # used in milestone C+
-    fork_children: dict[str, str] = field(default_factory=dict)   # used in milestone F+
-    waiting_for: str | None = None                                # used in milestone F+
+    evidence: dict[str, Any] = field(default_factory=dict)  # used in milestone C+
+    stamps: list[dict[str, Any]] = field(default_factory=list)  # used in milestone C+
+    fork_children: dict[str, str] = field(default_factory=dict)  # used in milestone F+
+    waiting_for: str | None = None  # used in milestone F+
     started_at: str | None = None
-    sla_deadline: str | None = None                               # used in milestone C+
+    sla_deadline: str | None = None  # used in milestone C+
     # Milestone D — compensation rollback attempt log. Each entry is
     # a dict with ``step``, ``outcome`` ("ok" | "failed"),
     # ``duration_ms``, ``timestamp``, and (when outcome="failed")
@@ -119,7 +119,9 @@ class SagaState:
                 if isinstance(branch_data, dict):
                     branch_state = cls.from_board_data(branch_data)
                     if branch_state is not None:
-                        branch_states[str(parallel_name)][str(branch_name)] = branch_state
+                        branch_states[str(parallel_name)][str(branch_name)] = (
+                            branch_state
+                        )
 
         return cls(
             saga_name=data["saga_name"],

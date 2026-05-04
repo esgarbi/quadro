@@ -48,9 +48,7 @@ def _build_tokens_section(
     the stages run as sagas or as the legacy workflow adapter.
     """
     try:
-        raw = board_fn(
-            "board.get_data", {"key": f"{_TOKENS_KEY_PREFIX}{task_id}"}
-        )
+        raw = board_fn("board.get_data", {"key": f"{_TOKENS_KEY_PREFIX}{task_id}"})
         existing = (raw or {}).get("value") or {}
     except Exception as exc:  # noqa: BLE001
         logger.debug("tokens: failed to read final tokens for %s: %s", task_id, exc)
@@ -165,27 +163,21 @@ def _route_back_to_idea_ready(ctx: SagaContext) -> dict[str, Any]:
 
 review_saga = (
     Saga("review")
-
     .guard("draft_present", check=lambda ctx: bool(_extract_article_md(ctx.task)))
-
     .deterministic("parse_draft", _extract_article_md_from_task)
-
     .reason(
         "editorial_decision",
         prompt=PROMPTS_DIR / "review.md",
         user_message=lambda ctx: f"## Article Draft\n\n{ctx.step['parse_draft']}",
         schema=ApprovedOutput,
     )
-
     .gate(
         "decision_routing",
         when=lambda ctx: ctx.step["editorial_decision"].approved,
         on_true="publish",
         on_false="request_revision",
     )
-
     .deterministic("publish", _write_files_and_mark_published)
-
     .evidence(
         "publication_record",
         capture=lambda ctx: {
@@ -194,8 +186,6 @@ review_saga = (
             "attempt": int(ctx.task.get("revision_count", 0) or 0) + 1,
         },
     )
-
     .deterministic("request_revision", _route_back_to_idea_ready)
-
     .build()
 )

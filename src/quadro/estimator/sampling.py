@@ -13,8 +13,7 @@ from typing import Protocol
 
 class _SizedObservation(Protocol):
     @property
-    def total_input_chars(self) -> int:
-        ...
+    def total_input_chars(self) -> int: ...
 
 
 @dataclass

@@ -52,9 +52,7 @@ def _persist_brief(ctx: SagaContext) -> dict[str, Any]:
 
 ideation_saga = (
     Saga("ideation")
-
     .deterministic("collect_avoid_list", _collect_existing_titles)
-
     .reason(
         "propose_headline",
         prompt=PROMPTS_DIR / "headline.md",
@@ -64,15 +62,12 @@ ideation_saga = (
         },
         schema=Headline,
     )
-
     .reason(
         "flesh_out_brief",
         prompt=PROMPTS_DIR / "ideation.md",
         user_message=lambda ctx: ctx.step["propose_headline"].headline,
         schema=ArticleBrief,
     )
-
     .deterministic("persist_brief", _persist_brief)
-
     .build()
 )

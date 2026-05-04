@@ -24,9 +24,7 @@ logger = logging.getLogger(__name__)
 # ── PubMed helper ────────────────────────────────────────────────────────────
 
 
-def _pubmed_search(
-    query: str, max_results: int = 5, retries: int = 3
-) -> list[dict]:
+def _pubmed_search(query: str, max_results: int = 5, retries: int = 3) -> list[dict]:
     """Lightweight PubMed fetch — parity with the legacy helper.
 
     Kept as a self-contained helper; the original copy lived in the
@@ -249,11 +247,8 @@ def _merge_research_into_task_output(ctx: SagaContext) -> dict[str, Any]:
 
 research_saga = (
     Saga("research")
-
     .guard("brief_must_exist", check=lambda ctx: ctx.task.get("output") is not None)
-
     .deterministic("parse_brief", _extract_brief_from_task)
-
     .reason(
         "plan_strategy",
         prompt=PROMPTS_DIR / "research.md",
@@ -266,26 +261,20 @@ research_saga = (
         },
         schema=ResearchStrategy,
     )
-
     .deterministic("query_pubmed", _fetch_pubmed_for_strategy)
     .retry(attempts=3, on=(urllib.error.HTTPError,))
     .deadline(within=timedelta(seconds=30))
-
     .deterministic("dedupe_citations", _deduplicate_by_pmid)
-
     .gate(
         "fallback_check",
         when=lambda ctx: len(ctx.step["dedupe_citations"]) > 0,
         on_true="persist_research",
         on_false="synthesise_placeholder_citations",
     )
-
     .deterministic(
         "synthesise_placeholder_citations",
         _build_placeholder_citations,
     )
-
     .deterministic("persist_research", _merge_research_into_task_output)
-
     .build()
 )

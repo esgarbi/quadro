@@ -44,8 +44,7 @@ def _build_writing_input_payload(ctx: SagaContext) -> str:
     brief: ArticleBrief = parsed["brief"]
     research: ResearchOutput = parsed["research"]
     citations_block = "\n".join(
-        f"- {c.authors} ({c.year}). {c.title}. {c.journal}."
-        for c in research.citations
+        f"- {c.authors} ({c.year}). {c.title}. {c.journal}." for c in research.citations
     )
     return (
         f"## Article Brief\n"
@@ -82,27 +81,21 @@ def _merge_draft_into_task_output(ctx: SagaContext) -> dict[str, Any]:
 
 writing_saga = (
     Saga("writing")
-
     .guard(
         "brief_and_research_present",
         check=lambda ctx: _writing_inputs_present(ctx.task),
     )
-
     .deterministic("parse_inputs", _parse_inputs)
     .deterministic("compose_input", _build_writing_input_payload)
-
     .reason(
         "draft_article",
         prompt=PROMPTS_DIR / "writing.md",
         user_message=lambda ctx: ctx.step["compose_input"],
     )
-
     .expect(
         "draft_is_non_empty",
         invariant=lambda ctx: bool(str(ctx.step["draft_article"]).strip()),
     )
-
     .deterministic("persist_draft", _merge_draft_into_task_output)
-
     .build()
 )

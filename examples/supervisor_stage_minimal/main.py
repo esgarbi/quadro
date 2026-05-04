@@ -81,7 +81,9 @@ def build_supervisor():
         from langchain.agents import create_agent
     except ImportError as exc:  # pragma: no cover - example runtime guard
         try:  # Backward-compatible fallback for environments with older helper.
-            create_react_agent = getattr(import_module("langgraph.prebuilt"), "create_react_agent")
+            create_react_agent = getattr(
+                import_module("langgraph.prebuilt"), "create_react_agent"
+            )
         except Exception:
             raise RuntimeError(
                 "This example requires langchain/langgraph agents support. "
@@ -127,11 +129,17 @@ def build_supervisor():
     class _SupervisorAdapter:
         async def ainvoke(self, payload: dict[str, Any]) -> dict[str, Any]:
             text = str((payload or {}).get("input") or "{}")
-            state = await agent.ainvoke({"messages": [{"role": "user", "content": text}]})
+            state = await agent.ainvoke(
+                {"messages": [{"role": "user", "content": text}]}
+            )
             messages = state.get("messages") if isinstance(state, dict) else None
             if not isinstance(messages, list):
                 messages = []
-            final_text = _flatten_content(getattr(messages[-1], "content", "")) if messages else ""
+            final_text = (
+                _flatten_content(getattr(messages[-1], "content", ""))
+                if messages
+                else ""
+            )
             return {
                 "messages": messages,
                 "output": {

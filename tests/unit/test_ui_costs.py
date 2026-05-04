@@ -74,8 +74,7 @@ def test_aggregate_by_reasoner_sums_correctly() -> None:
 
 def test_aggregate_by_task_top_n_capped_and_labeled() -> None:
     records = [
-        _record(f"t{i}", "research", f"s{i}", "maf", i * 10)
-        for i in range(1, 16)
+        _record(f"t{i}", "research", f"s{i}", "maf", i * 10) for i in range(1, 16)
     ]
     tasks = [{"task_id": f"t{i}", "label": f"Task {i}"} for i in range(1, 16)]
 

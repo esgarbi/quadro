@@ -198,7 +198,9 @@ def _make_validation_saga(inject_failure: str | None = None) -> BuiltSaga:
             "validate",
             prompt=PROMPTS_DIR / "validation.md",
             user_message=lambda ctx: {
-                k: v for k, v in ctx.step["parse_order"].items() if not k.startswith("_")
+                k: v
+                for k, v in ctx.step["parse_order"].items()
+                if not k.startswith("_")
             },
             schema=OrderValidation,
         )
@@ -210,7 +212,9 @@ def _make_validation_saga(inject_failure: str | None = None) -> BuiltSaga:
         )
         .deterministic(
             "persist_validated",
-            _maybe_inject_failure("persist_validated", _persist_validated, inject_failure),
+            _maybe_inject_failure(
+                "persist_validated", _persist_validated, inject_failure
+            ),
         )
         .deterministic(
             "persist_validation_failed",
@@ -465,14 +469,16 @@ def _procurement_reason_input(ctx: SagaContext) -> dict[str, Any]:
     for s in SUPPLIERS:
         unit_cost = round(catalog_price * s["price_multiplier"], 2)
         order_qty = max(units_needed, s["min_order"])
-        supplier_offers.append({
-            "name": s["name"],
-            "unit_cost": unit_cost,
-            "lead_time_days": s["lead_time_days"],
-            "reliability": s["reliability"],
-            "min_order": s["min_order"],
-            "total_cost": round(unit_cost * order_qty, 2),
-        })
+        supplier_offers.append(
+            {
+                "name": s["name"],
+                "unit_cost": unit_cost,
+                "lead_time_days": s["lead_time_days"],
+                "reliability": s["reliability"],
+                "min_order": s["min_order"],
+                "total_cost": round(unit_cost * order_qty, 2),
+            }
+        )
     return {
         "sku": parsed["sku"],
         "product_name": product.get("name", parsed["sku"]),
@@ -510,7 +516,11 @@ def _procure_units(ctx: SagaContext) -> dict[str, Any]:
     }
     board_fn("board.put_data", {"key": order_marker_key, "value": order_marker})
 
-    return {"units_ordered": units_ordered, "sku": sku, "supplier": result.supplier_name}
+    return {
+        "units_ordered": units_ordered,
+        "sku": sku,
+        "supplier": result.supplier_name,
+    }
 
 
 def _cancel_supplier_order(ctx: SagaContext) -> None:
@@ -641,14 +651,17 @@ def _reconstruct_order(ctx: SagaContext) -> dict[str, Any]:
         or product.get("price", 0.0)
     )
     order_total = float(
-        enriched.get("total", 0) or latest_output.get("total", 0) or unit_price * quantity
+        enriched.get("total", 0)
+        or latest_output.get("total", 0)
+        or unit_price * quantity
     )
 
     return {
         "sku": sku,
         "product_name": product_name,
         "quantity": quantity,
-        "customer_name": enriched.get("customer_name", "") or order.get("customer_name", ""),
+        "customer_name": enriched.get("customer_name", "")
+        or order.get("customer_name", ""),
         "delivery_address": (
             enriched.get("delivery_address", "")
             or order.get("address", "")
@@ -669,13 +682,15 @@ def _logistics_reason_input(ctx: SagaContext) -> dict[str, Any]:
     for c in CARRIERS:
         est_cost = round(c["base_cost"] + (quantity * 1.50), 2)
         est_delivery = (now + timedelta(days=c["speed_days"])).strftime("%Y-%m-%d")
-        carrier_options.append({
-            "name": c["name"],
-            "base_cost": c["base_cost"],
-            "speed_days": c["speed_days"],
-            "estimated_cost": est_cost,
-            "estimated_delivery": est_delivery,
-        })
+        carrier_options.append(
+            {
+                "name": c["name"],
+                "base_cost": c["base_cost"],
+                "speed_days": c["speed_days"],
+                "estimated_cost": est_cost,
+                "estimated_delivery": est_delivery,
+            }
+        )
     return {
         "sku": parsed["sku"],
         "product_name": parsed["product_name"],

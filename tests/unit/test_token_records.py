@@ -137,7 +137,9 @@ def _run_with_client(
 def test_record_written_after_successful_reason_step() -> None:
     reasoner = _FakeReasoner("maf")
     reasoner.queue("ok", tokens=37)
-    saga = Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    saga = (
+        Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    )
 
     result, store = _run_with_fake_store(saga, reasoner)
 
@@ -157,7 +159,9 @@ def test_record_overwrites_on_resume() -> None:
     reasoner = _FakeReasoner("maf")
     reasoner.queue("first", tokens=11)
     reasoner.queue("second", tokens=12)
-    saga = Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    saga = (
+        Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    )
     store = {"_fail_saga_persist": True}
 
     _run_with_fake_store(saga, reasoner, store=store)
@@ -176,7 +180,9 @@ def test_record_overwrites_on_resume() -> None:
 def test_no_record_when_tokens_zero() -> None:
     reasoner = _FakeReasoner("maf")
     reasoner.queue("ok", tokens=0)
-    saga = Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    saga = (
+        Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    )
 
     _result, store = _run_with_fake_store(saga, reasoner)
 
@@ -186,7 +192,9 @@ def test_no_record_when_tokens_zero() -> None:
 def test_no_record_when_reasoner_lacks_id() -> None:
     reasoner = _FakeReasoner("maf")
     reasoner.queue("ok", tokens=10)
-    saga = Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    saga = (
+        Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    )
     runtime = QuadroSagaRuntime()
     runtime.register_reasoner(reasoner)
     reasoner.reasoner_id = None
@@ -202,7 +210,9 @@ def test_no_record_when_reasoner_lacks_id() -> None:
 def test_record_write_failure_does_not_fail_step() -> None:
     reasoner = _FakeReasoner("maf")
     reasoner.queue("ok", tokens=10)
-    saga = Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    saga = (
+        Saga("test").reason("draft", prompt="p", user_message=lambda ctx: "u").build()
+    )
     store = {"_fail_token_record_put": True}
 
     result, store = _run_with_fake_store(saga, reasoner, store=store)
@@ -261,13 +271,17 @@ def test_tokens_by_stage_aggregates_correctly() -> None:
     writing.queue("writing", tokens=25)
 
     _run_with_client(
-        Saga("research").reason("research_step", prompt="p", user_message=lambda ctx: "u").build(),
+        Saga("research")
+        .reason("research_step", prompt="p", user_message=lambda ctx: "u")
+        .build(),
         [research],
         client,
         stage="research",
     )
     _run_with_client(
-        Saga("writing").reason("writing_step", prompt="p", user_message=lambda ctx: "u").build(),
+        Saga("writing")
+        .reason("writing_step", prompt="p", user_message=lambda ctx: "u")
+        .build(),
         [writing],
         client,
         stage="writing",

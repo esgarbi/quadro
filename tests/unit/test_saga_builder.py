@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from quadro.saga import BuiltSaga, Saga as SagaAlias  # top-level alias points to SagaBuilder
+from quadro.saga import (
+    BuiltSaga,
+    Saga as SagaAlias,
+)  # top-level alias points to SagaBuilder
 from quadro.saga.steps import StepKind
 
 import pytest
@@ -26,6 +29,7 @@ def test_builder_records_compensations() -> None:
     bare callable; milestone D widened the shape so the builder can
     carry per-compensation ``on_failure`` metadata ("continue" or
     "halt") alongside the callable."""
+
     # Defined as `def` rather than `lambda` to satisfy ruff's E731 lint;
     # functionally identical to `undo = lambda ctx: None`.
     def undo(ctx):

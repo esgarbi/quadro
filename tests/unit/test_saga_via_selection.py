@@ -88,6 +88,7 @@ def _fake_board_fn(store: dict) -> Any:
         if intent == "board.get_full_state":
             return {"tasks": store.get("_tasks") or []}
         raise AssertionError(f"unexpected intent: {intent}")
+
     return _fn
 
 
@@ -142,9 +143,7 @@ def test_via_none_falls_back_to_first_registered() -> None:
     first.queue("fallback hit")
 
     saga = (
-        Saga("test")
-        .reason("speak", prompt="p", user_message=lambda ctx: "hi")
-        .build()
+        Saga("test").reason("speak", prompt="p", user_message=lambda ctx: "hi").build()
     )
 
     runtime = QuadroSagaRuntime()
@@ -306,9 +305,7 @@ def test_via_records_reasoner_id_in_state() -> None:
     saga = (
         Saga("test")
         .reason("a", prompt="p", user_message=lambda ctx: "hi")
-        .reason(
-            "b", prompt="p", user_message=lambda ctx: "hi", via="langchain"
-        )
+        .reason("b", prompt="p", user_message=lambda ctx: "hi", via="langchain")
         .build()
     )
 
@@ -347,9 +344,7 @@ def test_builder_accepts_via_none_explicitly() -> None:
         .build()
     )
     saga_bare = (
-        Saga("test")
-        .reason("speak", prompt="p", user_message=lambda ctx: "hi")
-        .build()
+        Saga("test").reason("speak", prompt="p", user_message=lambda ctx: "hi").build()
     )
     # ``via`` is omitted from the payload when unset / explicitly
     # ``None``, keeping the default payload shape minimal. The two
@@ -358,7 +353,9 @@ def test_builder_accepts_via_none_explicitly() -> None:
     # which is why we compare key sets rather than object identity).
     assert "via" not in saga_none.steps[0].payload
     assert "via" not in saga_bare.steps[0].payload
-    assert set(saga_none.steps[0].payload.keys()) == set(saga_bare.steps[0].payload.keys())
+    assert set(saga_none.steps[0].payload.keys()) == set(
+        saga_bare.steps[0].payload.keys()
+    )
 
 
 def test_via_routing_does_not_affect_non_reason_steps() -> None:

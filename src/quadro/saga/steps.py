@@ -37,16 +37,16 @@ class StepKind(StrEnum):
     """
 
     DETERMINISTIC = "deterministic"
-    REASON = "reason"               # milestone B
-    GATE = "gate"                   # milestone C
-    GUARD = "guard"                 # milestone C
-    EVIDENCE = "evidence"           # milestone C
-    STAMP = "stamp"                 # milestone C
-    EXPECT = "expect"               # milestone C
-    COMPENSATE = "compensate"       # milestone D
-    PARALLEL = "parallel"           # milestone E
-    FORK = "fork"                   # milestone F
-    JOIN = "join"                   # milestone F
+    REASON = "reason"  # milestone B
+    GATE = "gate"  # milestone C
+    GUARD = "guard"  # milestone C
+    EVIDENCE = "evidence"  # milestone C
+    STAMP = "stamp"  # milestone C
+    EXPECT = "expect"  # milestone C
+    COMPENSATE = "compensate"  # milestone D
+    PARALLEL = "parallel"  # milestone E
+    FORK = "fork"  # milestone F
+    JOIN = "join"  # milestone F
 
 
 @dataclass(frozen=True)

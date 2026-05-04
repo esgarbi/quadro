@@ -155,7 +155,9 @@ class LangChainChiefRuntime(FrameworkRuntime):
                 msg = str(exc)
                 if "cannot schedule new futures after shutdown" in msg:
                     raise
-                raise RuntimeError(f"LangChain runnable invocation failed: {exc}") from exc
+                raise RuntimeError(
+                    f"LangChain runnable invocation failed: {exc}"
+                ) from exc
 
         if shape_errors:
             detail = "; ".join(str(e) for e in shape_errors[:3])
@@ -206,7 +208,9 @@ class LangChainChiefRuntime(FrameworkRuntime):
         stage = ctx.stage
         selected = self._entrypoint(stage)
         if selected is None:
-            raise ValueError("LangChainChiefRuntime received a stage without graph/supervisor")
+            raise ValueError(
+                "LangChainChiefRuntime received a stage without graph/supervisor"
+            )
         entrypoint_kind, entrypoint_ref = selected
 
         runnable = self._resolve_runnable(entrypoint_ref, ctx)

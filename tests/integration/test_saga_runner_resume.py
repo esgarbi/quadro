@@ -32,6 +32,7 @@ def test_saga_resumes_across_simulated_worker_restart() -> None:
         def _impl(ctx):
             counter[name] += 1
             return name
+
         return _impl
 
     saga = (
@@ -77,12 +78,16 @@ def test_saga_resumes_across_simulated_worker_restart() -> None:
         return bc.request(intent, payload)
 
     task = bc.get_task(task_id)
-    result = asyncio.run(runtime.run_stage(RuntimeContext(
-        stage=spec,
-        task=task,
-        context={"payload": {"task": task}},
-        board_fn=_board_fn,
-    )))
+    result = asyncio.run(
+        runtime.run_stage(
+            RuntimeContext(
+                stage=spec,
+                task=task,
+                context={"payload": {"task": task}},
+                board_fn=_board_fn,
+            )
+        )
+    )
 
     # Steps b and c ran; step a did NOT re-run.
     assert counter == {"a": 0, "b": 1, "c": 1}

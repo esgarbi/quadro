@@ -152,10 +152,7 @@ def _print_token_usage(client, task_id: str) -> None:
         f"  {'STEP':<{name_w}}  {'STAGE':<{stage_w}}  "
         f"{'REASONER':<{reasoner_w}}  TOKENS"
     )
-    print(
-        f"  {'-' * name_w}  {'-' * stage_w}  "
-        f"{'-' * reasoner_w}  {'-' * 6}"
-    )
+    print(f"  {'-' * name_w}  {'-' * stage_w}  {'-' * reasoner_w}  {'-' * 6}")
     for r in records:
         step = r.get("step_name") or ""
         stage = r.get("stage") or ""

@@ -91,7 +91,9 @@ class Pricing:
                 )
                 for name, value in models_raw.items()
             },
-            source_label=str(raw.get("source_label") or "configured at runtime startup"),
+            source_label=str(
+                raw.get("source_label") or "configured at runtime startup"
+            ),
             last_verified=raw.get("last_verified"),
             verify_url=raw.get("verify_url"),
         )

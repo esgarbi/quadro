@@ -49,23 +49,16 @@ def _fresh_import(module_name: str, directory: Path):
     sys.path.insert(0, str(directory))
     return importlib.import_module(module_name)
 
-from quadro import LifecycleBuilder, QuadroRuntime                               # noqa: E402
-from quadro.board.backends import SqliteBoardBackend                             # noqa: E402
-from quadro.pipeline import StageSpec                                            # noqa: E402
-from quadro.runtime_plugins.base import RuntimeContext                           # noqa: E402
-from quadro.runtime_plugins.saga import QuadroSagaRuntime                        # noqa: E402
-from quadro.saga.reasoner import ReasonResult                                    # noqa: E402
 
-CORE_DIR = (
-    Path(__file__).resolve().parents[2]
-    / "examples"
-    / "ordering_minimal"
-)
-MAF_DIR = (
-    Path(__file__).resolve().parents[2]
-    / "examples"
-    / "ordering"
-)
+from quadro import LifecycleBuilder, QuadroRuntime  # noqa: E402
+from quadro.board.backends import SqliteBoardBackend  # noqa: E402
+from quadro.pipeline import StageSpec  # noqa: E402
+from quadro.runtime_plugins.base import RuntimeContext  # noqa: E402
+from quadro.runtime_plugins.saga import QuadroSagaRuntime  # noqa: E402
+from quadro.saga.reasoner import ReasonResult  # noqa: E402
+
+CORE_DIR = Path(__file__).resolve().parents[2] / "examples" / "ordering_minimal"
+MAF_DIR = Path(__file__).resolve().parents[2] / "examples" / "ordering"
 
 
 # ── Fake reasoner (MAF side only) ─────────────────────────────────────────────
@@ -174,9 +167,11 @@ def test_core_ordering_compensation_rollback_on_injected_failure() -> None:
 
     # First three orders completed cleanly; fourth rolled back.
     assert results[:3] == ["saga_completed"] * 3
-    assert results[3].startswith("compensated:reserve_inventory") or results[3].startswith(
-        "compensation_"
-    ), f"expected compensation terminal reason, got {results[3]!r}"
+    assert results[3].startswith("compensated:reserve_inventory") or results[
+        3
+    ].startswith("compensation_"), (
+        f"expected compensation terminal reason, got {results[3]!r}"
+    )
 
     # Warehouse should show the three successful orders' debits only;
     # the fourth order's reserve_inventory never successfully ran so
@@ -305,9 +300,9 @@ def test_maf_ordering_compensation_rollback_records_shipment_recall() -> None:
 
     reasoner = _FakeReasoner()
     reasoner.queue = [
-        (validation_result, 50),     # validation / validate
-        (inventory_result, 40),      # inventory / check_stock
-        (shipping_result, 60),       # logistics / pick_carrier
+        (validation_result, 50),  # validation / validate
+        (inventory_result, 40),  # inventory / check_stock
+        (shipping_result, 60),  # logistics / pick_carrier
     ]
 
     saga_runtime = QuadroSagaRuntime()

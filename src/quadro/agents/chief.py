@@ -190,7 +190,9 @@ class ChiefAgent:
                 if asyncio.iscoroutine(raw):
                     self._write_telemetry(status="acting")
                     try:
-                        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        with concurrent.futures.ThreadPoolExecutor(
+                            max_workers=1
+                        ) as pool:
                             pool.submit(asyncio.run, raw).result()
                     except Exception:
                         # If shutdown races reject the executor submission,

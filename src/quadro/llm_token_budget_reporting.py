@@ -23,7 +23,9 @@ def _ticket_id_for_task(task: dict[str, Any]) -> str | None:
     return None
 
 
-def _parse_classifier_output(task: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+def _parse_classifier_output(
+    task: dict[str, Any],
+) -> tuple[str | None, str | None, str | None]:
     raw = task.get("output") or ""
     if task.get("status") != "classified" or not raw:
         return None, None, None

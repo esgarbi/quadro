@@ -25,12 +25,23 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from agent_framework import AgentExecutorRequest, Message, WorkflowBuilder, WorkflowContext, executor  # noqa: E402
+from agent_framework import (
+    AgentExecutorRequest,
+    Message,
+    WorkflowBuilder,
+    WorkflowContext,
+    executor,
+)  # noqa: E402
 from agent_framework.openai import OpenAIChatClient  # noqa: E402
 
 from quadro import LifecycleBuilder, Pipeline, QuadroRuntime  # noqa: E402
 from quadro.board.backends.sqlite import SqliteBoardBackend  # noqa: E402
-from quadro.sponsor import AllOf, DeadlineSponsor, LlmTokenBudgetSponsor, QueueDepthSponsor  # noqa: E402
+from quadro.sponsor import (
+    AllOf,
+    DeadlineSponsor,
+    LlmTokenBudgetSponsor,
+    QueueDepthSponsor,
+)  # noqa: E402
 from quadro_maf import MafChiefRuntime, MafReasoner  # noqa: E402
 
 HERE = Path(__file__).parent
@@ -146,7 +157,12 @@ def main() -> int:
     ).run(pipeline)
 
     tasks = final.get("tasks", [])
-    print(json.dumps({"tasks": tasks, "sponsor": final.get("data", {}).get("_sponsor_status")}, indent=2))
+    print(
+        json.dumps(
+            {"tasks": tasks, "sponsor": final.get("data", {}).get("_sponsor_status")},
+            indent=2,
+        )
+    )
     return 0
 
 

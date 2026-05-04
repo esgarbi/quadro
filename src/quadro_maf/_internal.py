@@ -273,9 +273,7 @@ def _extract_token_usage(events: Any) -> int:
     return total
 
 
-def _report_tokens(
-    reporter: Callable[[int], None] | None, events: Any
-) -> None:
+def _report_tokens(reporter: Callable[[int], None] | None, events: Any) -> None:
     """Call ``reporter`` with the extracted token total, swallowing errors."""
     if reporter is None:
         return

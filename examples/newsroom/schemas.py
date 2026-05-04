@@ -71,12 +71,8 @@ class CoreConcept(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     concept: str = Field(description="Short label for the concept")
-    scientific_terms: list[str] = Field(
-        description="MeSH-style scientific synonyms"
-    )
-    consumer_terms: list[str] = Field(
-        description="Consumer-friendly synonyms"
-    )
+    scientific_terms: list[str] = Field(description="MeSH-style scientific synonyms")
+    consumer_terms: list[str] = Field(description="Consumer-friendly synonyms")
 
 
 class SuggestedFilters(BaseModel):
@@ -95,9 +91,7 @@ class SuggestedFilters(BaseModel):
     study_types: list[str] = Field(
         description="Study type filters — meta-analysis, RCT, systematic review, etc."
     )
-    exclude_terms: list[str] = Field(
-        description="Terms to exclude to reduce noise"
-    )
+    exclude_terms: list[str] = Field(description="Terms to exclude to reduce noise")
 
 
 class ResearchStrategy(BaseModel):

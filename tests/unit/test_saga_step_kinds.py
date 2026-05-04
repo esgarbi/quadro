@@ -39,6 +39,7 @@ def _fake_board_fn(store: dict) -> Any:
         if intent == "board.get_full_state":
             return {"tasks": store.get("_tasks") or []}
         raise AssertionError(f"unexpected intent: {intent}")
+
     return _fn
 
 
@@ -199,7 +200,9 @@ def test_expect_passes_when_invariant_holds() -> None:
     saga = (
         Saga("test")
         .deterministic("seed", lambda ctx: {"value": 42})
-        .expect("value_is_positive", invariant=lambda ctx: ctx.step["seed"]["value"] > 0)
+        .expect(
+            "value_is_positive", invariant=lambda ctx: ctx.step["seed"]["value"] > 0
+        )
         .deterministic("after", lambda ctx: "ok")
         .build()
     )
@@ -215,7 +218,9 @@ def test_expect_fails_saga_when_invariant_returns_false() -> None:
     saga = (
         Saga("test")
         .deterministic("seed", lambda ctx: {"value": -1})
-        .expect("value_is_positive", invariant=lambda ctx: ctx.step["seed"]["value"] > 0)
+        .expect(
+            "value_is_positive", invariant=lambda ctx: ctx.step["seed"]["value"] > 0
+        )
         .build()
     )
     runtime = QuadroSagaRuntime()
@@ -232,16 +237,24 @@ def test_expect_distinguishes_from_guard_in_telemetry() -> None:
     saga_expect = Saga("e").expect("y", invariant=lambda ctx: False).build()
     runtime = QuadroSagaRuntime()
 
-    r1 = asyncio.run(runtime.run_stage(_ctx(
-        StageSpec(capability="a", saga=saga_guard, failure_status="f"),
-        {"task_id": "t1"},
-        {},
-    )))
-    r2 = asyncio.run(runtime.run_stage(_ctx(
-        StageSpec(capability="b", saga=saga_expect, failure_status="f"),
-        {"task_id": "t2"},
-        {},
-    )))
+    r1 = asyncio.run(
+        runtime.run_stage(
+            _ctx(
+                StageSpec(capability="a", saga=saga_guard, failure_status="f"),
+                {"task_id": "t1"},
+                {},
+            )
+        )
+    )
+    r2 = asyncio.run(
+        runtime.run_stage(
+            _ctx(
+                StageSpec(capability="b", saga=saga_expect, failure_status="f"),
+                {"task_id": "t2"},
+                {},
+            )
+        )
+    )
 
     g_events = {e["event_type"] for e in r1.telemetry}
     e_events = {e["event_type"] for e in r2.telemetry}
@@ -277,6 +290,7 @@ def test_evidence_step_records_into_state_evidence() -> None:
 def test_evidence_step_capture_failure_is_logged_but_does_not_fail_saga() -> None:
     """A capture callable raising is recorded as a warning; the saga
     proceeds to the next step. Evidence capture never fails a saga."""
+
     def _broken(ctx):
         raise RuntimeError("evidence capture exploded")
 

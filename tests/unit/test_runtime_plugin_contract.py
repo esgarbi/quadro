@@ -127,7 +127,9 @@ def test_pipeline_runtime_delegation_with_graph_entrypoint() -> None:
     output = asyncio.run(execute({"payload": {"task": task}}, _board_fn))
 
     assert output == {"ok": True}
-    assert graph_runtime.handled_specs and graph_runtime.handled_specs[0].graph is not None
+    assert (
+        graph_runtime.handled_specs and graph_runtime.handled_specs[0].graph is not None
+    )
     assert board_updates and board_updates[0]["to_status"] == "classified"
 
 
@@ -161,7 +163,11 @@ def test_maf_workflow_runtime_maps_output_tokens_and_telemetry() -> None:
     workflow = _FakeWorkflow(
         [
             NS(type="trace", data=NS(tool_name="advance", tool_call_id="tc-1")),
-            NS(type="usage", usage_details=NS(input_tokens=4, output_tokens=2), data=NS()),
+            NS(
+                type="usage",
+                usage_details=NS(input_tokens=4, output_tokens=2),
+                data=NS(),
+            ),
             NS(
                 type="output",
                 data=NS(
@@ -207,4 +213,3 @@ def test_maf_workflow_runtime_maps_output_tokens_and_telemetry() -> None:
     assert result.telemetry[0]["schema_version"] == "quadro.runtime_event.v1"
     assert result.telemetry[0]["event_type"] == "framework.stage_start"
     assert result.telemetry[-1]["event_type"] == "framework.stage_end"
-

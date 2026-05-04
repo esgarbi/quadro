@@ -11,6 +11,7 @@ from quadro.saga import Saga as SagaAlias
 def _fake_board_fn(store: dict) -> callable:
     """Tiny in-memory replacement for ``board_fn`` covering only the two
     intents the saga runtime uses in milestone A."""
+
     def _fn(intent: str, payload: dict) -> dict:
         if intent == "board.put_data":
             store[payload["key"]] = payload["value"]
@@ -18,6 +19,7 @@ def _fake_board_fn(store: dict) -> callable:
         if intent == "board.get_data":
             return {"key": payload["key"], "value": store.get(payload["key"])}
         raise AssertionError(f"unexpected intent in milestone-A test: {intent}")
+
     return _fn
 
 
@@ -96,6 +98,7 @@ def test_runtime_resumes_from_persisted_pc() -> None:
         def _impl(ctx):
             counter[name] += 1
             return name
+
         return _impl
 
     saga = (
@@ -130,14 +133,11 @@ def test_runtime_resumes_from_persisted_pc() -> None:
 
 def test_runtime_async_step_is_awaited() -> None:
     """A coroutine-function step is awaited; its return value is captured."""
+
     async def _async_step(ctx):
         return "async_result"
 
-    saga = (
-        SagaAlias("test")
-        .deterministic("a", _async_step)
-        .build()
-    )
+    saga = SagaAlias("test").deterministic("a", _async_step).build()
     spec = StageSpec(capability="x", success_status="done", saga=saga)
     runtime = QuadroSagaRuntime()
     store: dict = {}

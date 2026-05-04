@@ -101,7 +101,9 @@ class SagaBuilder:
         None).
         """
         self._reject_duplicate_name(name)
-        self._steps.append(Step(name=name, kind=StepKind.DETERMINISTIC, payload={"fn": fn}))
+        self._steps.append(
+            Step(name=name, kind=StepKind.DETERMINISTIC, payload={"fn": fn})
+        )
         self._current_step = name
         return self
 
@@ -652,7 +654,9 @@ class SagaBuilder:
     def build_branch(self) -> BuiltBranch:
         """Internal extractor for branches declared inside ``.parallel()``."""
         if not self._branch_mode:
-            raise RuntimeError("build_branch() is only valid for parallel branch builders")
+            raise RuntimeError(
+                "build_branch() is only valid for parallel branch builders"
+            )
         if not self._steps:
             raise ValueError(f"Saga {self._name!r}: parallel branch must be non-empty")
         step_names = {s.name for s in self._steps}
@@ -696,6 +700,4 @@ class SagaBuilder:
         """Step names must be unique within a saga — step name is the
         primary key for telemetry, persistence, and runner dispatch."""
         if any(s.name == name for s in self._steps):
-            raise ValueError(
-                f"Saga {self._name!r}: duplicate step name {name!r}"
-            )
+            raise ValueError(f"Saga {self._name!r}: duplicate step name {name!r}")

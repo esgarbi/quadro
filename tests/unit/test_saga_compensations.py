@@ -56,6 +56,7 @@ def _fake_board_fn(store: dict) -> Any:
         if intent == "board.get_full_state":
             return {"tasks": store.get("_tasks") or []}
         raise AssertionError(f"unexpected intent: {intent}")
+
     return _fn
 
 
@@ -293,7 +294,9 @@ def test_compensation_emits_start_end_events_per_step() -> None:
     assert types.count("saga.compensation_start") == 2
     assert types.count("saga.compensation_end") == 2
     # Each start should be followed by its matching end before the next start.
-    starts = [e for e in result.telemetry if e["event_type"] == "saga.compensation_start"]
+    starts = [
+        e for e in result.telemetry if e["event_type"] == "saga.compensation_start"
+    ]
     assert [e["step_name"] for e in starts] == ["b", "a"]
 
 
@@ -314,12 +317,10 @@ def test_compensation_emits_started_completed_alias_events() -> None:
     result = asyncio.run(runtime.run_stage(_ctx(spec, {"task_id": "t1"}, {})))
 
     started = [
-        e for e in result.telemetry
-        if e["event_type"] == "saga.compensation_started"
+        e for e in result.telemetry if e["event_type"] == "saga.compensation_started"
     ]
     completed = [
-        e for e in result.telemetry
-        if e["event_type"] == "saga.compensation_completed"
+        e for e in result.telemetry if e["event_type"] == "saga.compensation_completed"
     ]
     assert len(started) == 1
     assert len(completed) == 1
@@ -351,8 +352,7 @@ def test_compensation_emits_failed_event_on_inner_raise() -> None:
     result = asyncio.run(runtime.run_stage(_ctx(spec, {"task_id": "t1"}, {})))
 
     failed_events = [
-        e for e in result.telemetry
-        if e["event_type"] == "saga.compensation_failed"
+        e for e in result.telemetry if e["event_type"] == "saga.compensation_failed"
     ]
     assert len(failed_events) == 1
     payload = failed_events[0]["payload"]
@@ -380,8 +380,7 @@ def test_compensation_emits_rollback_complete_at_end() -> None:
     result = asyncio.run(runtime.run_stage(_ctx(spec, {"task_id": "t1"}, {})))
 
     complete_events = [
-        e for e in result.telemetry
-        if e["event_type"] == "saga.rollback_complete"
+        e for e in result.telemetry if e["event_type"] == "saga.rollback_complete"
     ]
     assert len(complete_events) == 1
     payload = complete_events[0]["payload"]
@@ -534,8 +533,10 @@ def test_compensation_runs_against_completed_steps_outputs() -> None:
 
     saga = (
         Saga("test")
-        .deterministic("reserve_inventory",
-                       lambda ctx: {"sku": "SKU-A", "qty": 3, "from": "WH-MAIN"})
+        .deterministic(
+            "reserve_inventory",
+            lambda ctx: {"sku": "SKU-A", "qty": 3, "from": "WH-MAIN"},
+        )
         .compensate("reserve_inventory", undo=_undo_reserve)
         .deterministic("ship", _raise)
         .build()

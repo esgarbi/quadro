@@ -60,17 +60,17 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from quadro import (                                                            # noqa: E402
+from quadro import (  # noqa: E402
     LifecycleBuilder,
     Pipeline,
     QuadroBoard,
 )
-from quadro.a2a.dispatch import LocalA2ANetwork                                 # noqa: E402
-from quadro.board.backends.sqlite import SqliteBoardBackend                     # noqa: E402
-from quadro.runner import RunLoop                                               # noqa: E402
-from quadro.runtime_plugins.saga import QuadroSagaRuntime                       # noqa: E402
-from quadro.saga import BuiltSaga, Saga, SagaContext                            # noqa: E402
-from quadro.sponsor import AllOf, GoalSponsor, TickBudgetSponsor                # noqa: E402
+from quadro.a2a.dispatch import LocalA2ANetwork  # noqa: E402
+from quadro.board.backends.sqlite import SqliteBoardBackend  # noqa: E402
+from quadro.runner import RunLoop  # noqa: E402
+from quadro.runtime_plugins.saga import QuadroSagaRuntime  # noqa: E402
+from quadro.saga import BuiltSaga, Saga, SagaContext  # noqa: E402
+from quadro.sponsor import AllOf, GoalSponsor, TickBudgetSponsor  # noqa: E402
 
 
 # ─── Order lifecycle profile ──────────────────────────────────────────────────
@@ -112,10 +112,13 @@ def _accept_order(ctx: SagaContext) -> dict[str, Any]:
     """Transition the task from ``placed`` to ``accepted``."""
     task = ctx.task
     board_fn = task["_board_fn"]
-    board_fn("board.update_task", {
-        "task_id": task["task_id"],
-        "to_status": "accepted",
-    })
+    board_fn(
+        "board.update_task",
+        {
+            "task_id": task["task_id"],
+            "to_status": "accepted",
+        },
+    )
     return {
         "accepted_at": (ctx.now.isoformat() if ctx.now else None),
         "task_id": task["task_id"],
@@ -144,11 +147,14 @@ def _cancel_acceptance(ctx: SagaContext) -> None:
         board_fn("board.put_data", {"key": marker_key, "value": "cancelled"})
         return
 
-    board_fn("board.update_task", {
-        "task_id": task["task_id"],
-        "to_status": "cancelled",
-        "notes_append": "Acceptance cancelled (compensation rollback)",
-    })
+    board_fn(
+        "board.update_task",
+        {
+            "task_id": task["task_id"],
+            "to_status": "cancelled",
+            "notes_append": "Acceptance cancelled (compensation rollback)",
+        },
+    )
     board_fn("board.put_data", {"key": marker_key, "value": "cancelled"})
 
 
@@ -175,10 +181,13 @@ def _reserve_inventory(ctx: SagaContext) -> dict[str, Any]:
 
     wh[sku] = available - qty
     board_fn("board.put_data", {"key": "WH-MAIN", "value": wh})
-    board_fn("board.update_task", {
-        "task_id": task["task_id"],
-        "to_status": "stock_ready",
-    })
+    board_fn(
+        "board.update_task",
+        {
+            "task_id": task["task_id"],
+            "to_status": "stock_ready",
+        },
+    )
     return {"sku": sku, "qty": qty, "reserved_from": "WH-MAIN"}
 
 
@@ -222,10 +231,13 @@ def _ship_package(ctx: SagaContext) -> dict[str, Any]:
         "dispatched_at": (ctx.now.isoformat() if ctx.now else None),
     }
     board_fn("board.put_data", {"key": shipment_key, "value": shipment})
-    board_fn("board.update_task", {
-        "task_id": task["task_id"],
-        "to_status": "delivered",
-    })
+    board_fn(
+        "board.update_task",
+        {
+            "task_id": task["task_id"],
+            "to_status": "delivered",
+        },
+    )
     return {"dispatched_at": shipment["dispatched_at"]}
 
 
@@ -247,8 +259,10 @@ def _recall_shipment(ctx: SagaContext) -> None:
         return
 
     shipment_key = f"_shipment:{task['task_id']}"
-    existing = (board_fn("board.get_data", {"key": shipment_key}) or {}).get("value") or {}
-    existing["recalled_at"] = (ctx.now.isoformat() if ctx.now else None)
+    existing = (board_fn("board.get_data", {"key": shipment_key}) or {}).get(
+        "value"
+    ) or {}
+    existing["recalled_at"] = ctx.now.isoformat() if ctx.now else None
     existing["recall_reason"] = "compensation rollback"
     board_fn("board.put_data", {"key": shipment_key, "value": existing})
     board_fn("board.put_data", {"key": marker_key, "value": "recalled"})
@@ -362,6 +376,7 @@ def main() -> None:
 
     if args.lifecycle:
         from quadro.board.lifecycle_loader import load_lifecycle
+
         _name, profile = load_lifecycle(args.lifecycle)
     else:
         profile = ORDER_PROFILE
@@ -441,9 +456,7 @@ def main() -> None:
         tasks = state["tasks"]
         delivered = sum(1 for t in tasks if t["status"] == "delivered")
         cancelled = sum(1 for t in tasks if t["status"] == "cancelled")
-        pending = sum(
-            1 for t in tasks if t["status"] not in ("delivered", "cancelled")
-        )
+        pending = sum(1 for t in tasks if t["status"] not in ("delivered", "cancelled"))
         wh = state["data"].get("WH-MAIN", {})
         print(
             f"[cycle {cycle:3d}]  delivered={delivered}  "

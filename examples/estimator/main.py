@@ -192,10 +192,14 @@ def main() -> None:
         built = pipeline.build()
         runtime.sponsor(
             GoalSponsor(
-                lambda state: sum(
-                    1 for task in state.get("tasks", []) if task.get("status") == "translated"
+                lambda state: (
+                    sum(
+                        1
+                        for task in state.get("tasks", [])
+                        if task.get("status") == "translated"
+                    )
+                    >= len(queue)
                 )
-                >= len(queue)
             )
         ).poll_every(1.0).run(built)
 

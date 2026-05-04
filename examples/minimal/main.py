@@ -113,7 +113,9 @@ def main() -> None:
         .run(pipeline)
     )
 
-    answered = [t for t in final_state.get("tasks", []) if t.get("status") == "answered"]
+    answered = [
+        t for t in final_state.get("tasks", []) if t.get("status") == "answered"
+    ]
     if not answered:
         print("No task reached 'answered' status.")
         sys.exit(1)

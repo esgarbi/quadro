@@ -35,7 +35,9 @@ class _SqliteTokenClient:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Estimate Quadro token and dollar costs")
+    parser = argparse.ArgumentParser(
+        description="Estimate Quadro token and dollar costs"
+    )
     parser.add_argument("board_db", help="Path to a Quadro SQLite Board database")
     parser.add_argument("--project-tasks", type=int, default=None)
     parser.add_argument("--no-project", action="store_true")
@@ -52,7 +54,9 @@ def main(argv: list[str] | None = None) -> None:
         print(_format_historical_report(client, pricing=pricing))
         return
 
-    estimator = Estimator.from_history(client, pricing=pricing, confidence=args.confidence)
+    estimator = Estimator.from_history(
+        client, pricing=pricing, confidence=args.confidence
+    )
     n_tasks = args.project_tasks or estimator.default_n_tasks
     print(estimator.format(projection=estimator.project(n_tasks=n_tasks)))
 
@@ -100,7 +104,9 @@ def _format_historical_report(
         lines.append(f"Approx dollars: ${pricing.cost_for_tokens(model, total):.2f}")
     lines.append("")
     lines.append("By stage:")
-    for stage, tokens in sorted(by_stage.items(), key=lambda item: item[1], reverse=True):
+    for stage, tokens in sorted(
+        by_stage.items(), key=lambda item: item[1], reverse=True
+    ):
         pct = (tokens / total * 100) if total else 0
         lines.append(f"  {stage:<12} {_format_tokens(tokens):>8}  ({pct:.1f}%)")
     if by_reasoner:

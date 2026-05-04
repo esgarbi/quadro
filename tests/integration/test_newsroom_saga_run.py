@@ -24,11 +24,7 @@ import pytest
 
 # ── sys.path plumbing so the newsroom's own modules import cleanly ────────────
 
-NEWSROOM_DIR = (
-    Path(__file__).resolve().parents[2]
-    / "examples"
-    / "newsroom"
-)
+NEWSROOM_DIR = Path(__file__).resolve().parents[2] / "examples" / "newsroom"
 if str(NEWSROOM_DIR) not in sys.path:
     sys.path.insert(0, str(NEWSROOM_DIR))
 
@@ -36,12 +32,12 @@ if str(NEWSROOM_DIR) not in sys.path:
 # rather than fail if a developer runs this test without the dep.
 pytest.importorskip("dotenv")
 
-from quadro import LifecycleBuilder, QuadroRuntime                           # noqa: E402
-from quadro.board.backends import SqliteBoardBackend                         # noqa: E402
-from quadro.pipeline import StageSpec                                        # noqa: E402
-from quadro.runtime_plugins.base import RuntimeContext                       # noqa: E402
-from quadro.runtime_plugins.saga import QuadroSagaRuntime                    # noqa: E402
-from quadro.saga.reasoner import ReasonResult                                # noqa: E402
+from quadro import LifecycleBuilder, QuadroRuntime  # noqa: E402
+from quadro.board.backends import SqliteBoardBackend  # noqa: E402
+from quadro.pipeline import StageSpec  # noqa: E402
+from quadro.runtime_plugins.base import RuntimeContext  # noqa: E402
+from quadro.runtime_plugins.saga import QuadroSagaRuntime  # noqa: E402
+from quadro.saga.reasoner import ReasonResult  # noqa: E402
 
 
 # ── Fake reasoner ─────────────────────────────────────────────────────────────
@@ -90,15 +86,15 @@ def _article_lifecycle():
 def test_four_saga_newsroom_publishes_article(tmp_path, monkeypatch) -> None:
     """Drive the four sagas in order on a single task and verify the
     published .md and .json files appear with the expected shape."""
-    from schemas import (                                                    # noqa: E402
+    from schemas import (  # noqa: E402
         ApprovedOutput,
         ArticleBrief,
         Headline,
         ResearchStrategy,
     )
-    import sagas                                                             # noqa: E402
-    from sagas import research as sagas_research                             # noqa: E402
-    from sagas import review as sagas_review                                 # noqa: E402
+    import sagas  # noqa: E402
+    from sagas import research as sagas_research  # noqa: E402
+    from sagas import review as sagas_review  # noqa: E402
 
     # Isolate the on-disk artefact directory to this test's tmp_path.
     # Post sagas-package refactor, ``ARTICLES_DIR`` is bound into
@@ -123,9 +119,7 @@ def test_four_saga_newsroom_publishes_article(tmp_path, monkeypatch) -> None:
             "abstract": "",
         }
     ]
-    monkeypatch.setattr(
-        sagas_research, "_pubmed_search", lambda *a, **kw: list(canned)
-    )
+    monkeypatch.setattr(sagas_research, "_pubmed_search", lambda *a, **kw: list(canned))
 
     # Real in-memory SQLite board with the article lifecycle registered.
     backend = SqliteBoardBackend()
@@ -176,11 +170,11 @@ def test_four_saga_newsroom_publishes_article(tmp_path, monkeypatch) -> None:
 
     reasoner = _FakeReasoner()
     reasoner.queue = [
-        (headline, 50),      # ideation / propose_headline
-        (brief, 200),        # ideation / flesh_out_brief
-        (strategy, 100),     # research / plan_strategy
-        (article_md, 500),   # writing / draft_article (no schema)
-        (decision, 40),      # review  / editorial_decision
+        (headline, 50),  # ideation / propose_headline
+        (brief, 200),  # ideation / flesh_out_brief
+        (strategy, 100),  # research / plan_strategy
+        (article_md, 500),  # writing / draft_article (no schema)
+        (decision, 40),  # review  / editorial_decision
     ]
 
     saga_runtime = QuadroSagaRuntime()

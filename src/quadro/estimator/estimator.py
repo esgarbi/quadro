@@ -75,7 +75,11 @@ class Estimator:
         original_reasoners = dict(getattr(saga_runtime, "_reasoners", {}) or {})
         if not original_reasoners:
             raise ValueError("Estimator.from_dry_run requires a registered reasoner")
-        stages = [stage for stage in getattr(pipeline, "_stages", []) if stage.saga is not None]
+        stages = [
+            stage
+            for stage in getattr(pipeline, "_stages", [])
+            if stage.saga is not None
+        ]
         if not stages:
             raise ValueError("Estimator.from_dry_run requires at least one saga stage")
 
@@ -191,7 +195,9 @@ class Estimator:
                 f"(cost: {sample_cost})"
             )
             if self.sampled_task_observations:
-                sizes = [obs.total_input_chars for obs in self.sampled_task_observations]
+                sizes = [
+                    obs.total_input_chars for obs in self.sampled_task_observations
+                ]
                 lines.append("")
                 lines.append("Sample distribution chosen by input-size span:")
                 lines.append(f"  Smallest input:  {min(sizes):,} chars")
@@ -212,8 +218,14 @@ class Estimator:
             for stage, tokens in sorted(
                 projection.by_stage.items(), key=lambda item: item[1], reverse=True
             ):
-                pct = (tokens / projection.total_tokens * 100) if projection.total_tokens else 0
-                lines.append(f"    {stage:<14} {_format_tokens(tokens):>8}  ({pct:.1f}%)")
+                pct = (
+                    (tokens / projection.total_tokens * 100)
+                    if projection.total_tokens
+                    else 0
+                )
+                lines.append(
+                    f"    {stage:<14} {_format_tokens(tokens):>8}  ({pct:.1f}%)"
+                )
         else:
             lines.append("    <unknown>        (no stage records)")
 
@@ -299,11 +311,15 @@ async def _collect_stage(
         token_reporter=None,
         telemetry_sink=None,
     )
-    state = SagaState(saga_name=stage.saga.name, pc=stage.saga.first_step(), started_at="")
+    state = SagaState(
+        saga_name=stage.saga.name, pc=stage.saga.first_step(), started_at=""
+    )
     await _walk_state(saga_runtime, stage.saga, state, ctx)
 
 
-async def _walk_state(saga_runtime: Any, saga: Any, state: SagaState, ctx: RuntimeContext) -> None:
+async def _walk_state(
+    saga_runtime: Any, saga: Any, state: SagaState, ctx: RuntimeContext
+) -> None:
     while state.pc is not None:
         if saga_runtime._is_gate_barrier(saga, state):  # noqa: SLF001
             return
@@ -375,7 +391,9 @@ async def _measure_samples(
     return Calibration(calibrations)
 
 
-def _post_sample_task(client: Any, raw_task: dict[str, Any], task_id: str) -> dict[str, Any]:
+def _post_sample_task(
+    client: Any, raw_task: dict[str, Any], task_id: str
+) -> dict[str, Any]:
     payload = dict(raw_task)
     task_type = str(payload.pop("task_type", payload.pop("type", "estimate_sample")))
     label = str(payload.pop("label", f"Estimator sample {task_id}"))
@@ -428,10 +446,12 @@ def _calibration_from_records(records: list[dict[str, Any]]) -> Calibration:
     for record in records:
         task_id = str(record.get("task_id") or "<unknown>")
         by_task.setdefault(task_id, []).append(record)
-    return Calibration([
-        _task_calibration_from_records(task_id, task_records)
-        for task_id, task_records in sorted(by_task.items())
-    ])
+    return Calibration(
+        [
+            _task_calibration_from_records(task_id, task_records)
+            for task_id, task_records in sorted(by_task.items())
+        ]
+    )
 
 
 def _task_calibration_from_records(
@@ -447,7 +467,9 @@ def _task_calibration_from_records(
         total += tokens
         stage = record.get("stage")
         step = record.get("step_name")
-        model = record.get("model") or record.get("model_id") or record.get("reasoner_id")
+        model = (
+            record.get("model") or record.get("model_id") or record.get("reasoner_id")
+        )
         if stage:
             by_stage[str(stage)] = by_stage.get(str(stage), 0) + tokens
         if step:
@@ -493,7 +515,11 @@ def _sample_cost(calibration: Calibration, pricing: Pricing | None) -> float | N
         return None
     total = 0.0
     for task in calibration.tasks:
-        model = max(task.by_model.items(), key=lambda item: item[1])[0] if task.by_model else "default"
+        model = (
+            max(task.by_model.items(), key=lambda item: item[1])[0]
+            if task.by_model
+            else "default"
+        )
         total += pricing.cost_for_tokens(model, task.total_tokens)
     return total
 

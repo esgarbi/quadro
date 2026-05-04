@@ -42,15 +42,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from agent_framework.openai import OpenAIChatClient                              # noqa: E402
-from quadro import LifecycleBuilder, Pipeline, QuadroRuntime                     # noqa: E402
-from quadro.board.backends import SqliteBoardBackend                             # noqa: E402
-from quadro.sponsor import LlmTokenBudgetSponsor                                # noqa: E402
-from quadro_maf import MafChiefRuntime, MafReasoner                              # noqa: E402
+from agent_framework.openai import OpenAIChatClient  # noqa: E402
+from quadro import LifecycleBuilder, Pipeline, QuadroRuntime  # noqa: E402
+from quadro.board.backends import SqliteBoardBackend  # noqa: E402
+from quadro.sponsor import LlmTokenBudgetSponsor  # noqa: E402
+from quadro_maf import MafChiefRuntime, MafReasoner  # noqa: E402
 
-from data import INITIAL_WAREHOUSE, PRODUCT_CATALOG                              # noqa: E402
-from producer import ChoreographyStep, OrderProducer                             # noqa: E402
-from sagas import build_sagas                                                    # noqa: E402
+from data import INITIAL_WAREHOUSE, PRODUCT_CATALOG  # noqa: E402
+from producer import ChoreographyStep, OrderProducer  # noqa: E402
+from sagas import build_sagas  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -132,18 +132,22 @@ def main(
 ) -> None:
     db_path = str(HERE / "orders.db")
 
-    runtime = QuadroRuntime(SqliteBoardBackend(db_path)).with_profiles(
-        profile_resolver={"order": "order"},
-        custom_profiles={"order": ORDER_LIFECYCLE},
-    ).with_pricing(
-        {
-            "gpt-5.4": {
-                "input": 2.5,
-                "output": 15.0,
-                "io_ratio": 0.30,
-            }
-        },
-        verify_url="https://openai.com/pricing",
+    runtime = (
+        QuadroRuntime(SqliteBoardBackend(db_path))
+        .with_profiles(
+            profile_resolver={"order": "order"},
+            custom_profiles={"order": ORDER_LIFECYCLE},
+        )
+        .with_pricing(
+            {
+                "gpt-5.4": {
+                    "input": 2.5,
+                    "output": 15.0,
+                    "io_ratio": 0.30,
+                }
+            },
+            verify_url="https://openai.com/pricing",
+        )
     )
     bc = runtime.client
 
@@ -259,9 +263,7 @@ def main(
     )
 
     final_state = (
-        runtime.sponsor(
-            LlmTokenBudgetSponsor(token_budget)
-        )
+        runtime.sponsor(LlmTokenBudgetSponsor(token_budget))
         .on_cycle(_log_cycle)
         .poll_every(3.0)
         .ombudsman_every(30.0)
@@ -277,7 +279,9 @@ def main(
 
     print(f"\n{'=' * 60}")
     print("  Ordering system complete")
-    print(f"  Tokens used: {_format_tokens(tokens_final)} / {_format_tokens(token_budget)}")
+    print(
+        f"  Tokens used: {_format_tokens(tokens_final)} / {_format_tokens(token_budget)}"
+    )
     print(f"  Orders shipped: {shipped_count}")
     print(f"  Stop reason: {last_reason}")
     print(f"  Mode: {mode}")

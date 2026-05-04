@@ -164,7 +164,10 @@ class MafChiefRuntime(FrameworkRuntime):
                             stage_result = maybe_json[_STAGE_RESULT_MARKER]
                             if "output" in stage_result:
                                 output_value = stage_result["output"]
-                            if "status" in stage_result and stage_result["status"] is not None:
+                            if (
+                                "status" in stage_result
+                                and stage_result["status"] is not None
+                            ):
                                 status = str(stage_result["status"])
                             if (
                                 "notes_append" in stage_result
@@ -196,7 +199,10 @@ class MafChiefRuntime(FrameworkRuntime):
                     value = getattr(data, key, None)
                     if value is not None:
                         event_payload[key] = value
-                        if key in {"resume_id", "continuation_token"} and resume_id is None:
+                        if (
+                            key in {"resume_id", "continuation_token"}
+                            and resume_id is None
+                        ):
                             resume_id = str(value)
                         if key == "checkpoint_id" and checkpoint_id is None:
                             checkpoint_id = str(value)

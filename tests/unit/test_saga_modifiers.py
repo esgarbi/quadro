@@ -29,12 +29,15 @@ def _fake_board_fn(store: dict):
         if intent == "board.get_full_state":
             return {"tasks": []}
         raise AssertionError(intent)
+
     return _fn
 
 
 def _ctx(spec, task, store):
     return RuntimeContext(
-        stage=spec, task=task, context={"payload": {"task": task}},
+        stage=spec,
+        task=task,
+        context={"payload": {"task": task}},
         board_fn=_fake_board_fn(store),
     )
 
@@ -87,8 +90,7 @@ def test_retry_emits_attempt_events_before_next_try() -> None:
     result = asyncio.run(runtime.run_stage(_ctx(spec, {"task_id": "t1"}, {})))
 
     retry_events = [
-        e for e in result.telemetry
-        if e["event_type"] == "saga.retry_attempt"
+        e for e in result.telemetry if e["event_type"] == "saga.retry_attempt"
     ]
     assert [e["payload"]["attempt_number"] for e in retry_events] == [1, 2]
     assert [e["payload"]["last_error_type"] for e in retry_events] == [
@@ -101,6 +103,7 @@ def test_retry_emits_attempt_events_before_next_try() -> None:
 def test_retry_propagates_exception_when_attempts_exhausted() -> None:
     """If the step keeps raising past `attempts`, the exception
     propagates and the saga fails."""
+
     def _always_fails(ctx):
         raise ConnectionError("persistent")
 
@@ -149,6 +152,7 @@ def test_retry_attaches_to_current_step_only() -> None:
             if calls[name] < 2:
                 raise ConnectionError("flake")
             return name
+
         return _impl
 
     saga = (
@@ -188,6 +192,7 @@ def test_deadline_passes_when_step_completes_within_window() -> None:
 def test_deadline_fails_step_when_exceeded() -> None:
     """A step that takes longer than `within` is cancelled and the
     saga fails with terminal_reason `deadline_exceeded:<step>`."""
+
     async def _slow(ctx):
         await asyncio.sleep(0.5)
         return "should not arrive"

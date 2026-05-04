@@ -55,7 +55,9 @@ def test_invoke_runnable_retries_only_on_type_error() -> None:
     runnable = _TypeErrorThenSuccessRunnable(payloads=[], success_payload={"ok": True})
 
     result, index = asyncio.run(
-        runtime._invoke_runnable(runnable, attempts=[{"input": "x"}, "x", {"messages": []}])
+        runtime._invoke_runnable(
+            runnable, attempts=[{"input": "x"}, "x", {"messages": []}]
+        )
     )
 
     assert result == {"ok": True}
@@ -67,7 +69,9 @@ def test_invoke_runnable_surfaces_shutdown_failure_without_retry() -> None:
     runtime = LangChainChiefRuntime(client_factory=lambda: None)
     runnable = _ShutdownFailureRunnable(payloads=[])
 
-    with pytest.raises(RuntimeError, match="cannot schedule new futures after shutdown"):
+    with pytest.raises(
+        RuntimeError, match="cannot schedule new futures after shutdown"
+    ):
         asyncio.run(runtime._invoke_runnable(runnable, attempts=[{"input": "x"}, "x"]))
 
     assert len(runnable.payloads) == 1
@@ -131,7 +135,12 @@ def test_langchain_runtime_uses_safe_fallback_for_empty_task_input() -> None:
         runtime.run_stage(
             RuntimeContext(
                 stage=StageSpec(capability="classify", graph=runnable),
-                task={"task_id": "task-2", "status": "classifying", "output": None, "notes": []},
+                task={
+                    "task_id": "task-2",
+                    "status": "classifying",
+                    "output": None,
+                    "notes": [],
+                },
                 context={"payload": {"task": {"task_id": "task-2"}}},
                 board_fn=lambda intent, payload: {},  # noqa: ARG005
                 token_reporter=lambda n: None,

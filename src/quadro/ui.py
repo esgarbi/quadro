@@ -402,7 +402,9 @@ class _DataSource:
             raw_pricing = self._client.get_data("_pricing")
         except Exception:  # noqa: BLE001
             raw_pricing = None
-        pricing = Pricing.from_dict(raw_pricing) if isinstance(raw_pricing, dict) else None
+        pricing = (
+            Pricing.from_dict(raw_pricing) if isinstance(raw_pricing, dict) else None
+        )
         aggregates = _aggregate_token_records(aggregate_data, tasks, pricing=pricing)
         if aggregates is not None:
             aggregates["by_stage"] = self._client.tokens_by_stage()
@@ -2335,9 +2337,7 @@ def _cli() -> None:
     if not args.db:
         parser.print_help()
         print("\nExample:")
-        print(
-            "  python -m quadro.ui examples/newsroom/newsroom.db"
-        )
+        print("  python -m quadro.ui examples/newsroom/newsroom.db")
         sys.exit(0)
 
     db = Path(args.db)

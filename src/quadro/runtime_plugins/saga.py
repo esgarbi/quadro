@@ -99,16 +99,19 @@ logger = logging.getLogger(__name__)
 # values, but the loop checks for them so milestone F can wire suspension
 # and gates without restructuring the runner.
 
+
 @dataclass(frozen=True)
 class _Suspend:
     """Sentinel returned by step handlers when the saga must suspend."""
-    status: str          # WAITING_FORK / WAITING_HUMAN — milestone F
+
+    status: str  # WAITING_FORK / WAITING_HUMAN — milestone F
     waiting_for: str
 
 
 @dataclass(frozen=True)
 class _PCJump:
     """Sentinel returned by step handlers that have already advanced ``pc``."""
+
     pass
 
 
@@ -148,7 +151,9 @@ class _ParallelFailed(Exception):
 
     def __init__(self, parallel_name: str, failures: dict[str, BaseException]) -> None:
         branch_names = ", ".join(sorted(failures)) or "<none>"
-        super().__init__(f"parallel step {parallel_name!r} failed branches: {branch_names}")
+        super().__init__(
+            f"parallel step {parallel_name!r} failed branches: {branch_names}"
+        )
         self.parallel_name = parallel_name
         self.failures = failures
 
@@ -350,7 +355,9 @@ class QuadroSagaRuntime(FrameworkRuntime):
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Deterministic chief: dispatch to %s (capability %s) failed: %s",
-                    active_status, capability, exc,
+                    active_status,
+                    capability,
+                    exc,
                 )
                 continue
             if dispatched:
@@ -401,17 +408,21 @@ class QuadroSagaRuntime(FrameworkRuntime):
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "Failed to fetch board state for saga %s on task %s: %s",
-                saga.name, task_id, exc,
+                saga.name,
+                task_id,
+                exc,
             )
             task["_board_state"] = {"tasks": []}
 
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type="saga.resume" if state.completed_steps else "saga.start",
-            stage=ctx.stage.capability,
-            task_id=task_id,
-            payload={"saga": saga.name, "pc": state.pc},
-        ))
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type="saga.resume" if state.completed_steps else "saga.start",
+                stage=ctx.stage.capability,
+                task_id=task_id,
+                payload={"saga": saga.name, "pc": state.pc},
+            )
+        )
 
         # ── 2. Walk steps until completion or suspension ─────────────────
         while state.pc is not None:
@@ -430,14 +441,16 @@ class QuadroSagaRuntime(FrameworkRuntime):
             step = saga.find(state.pc)
 
             step_start = datetime.now(UTC)
-            telemetry.append(build_runtime_event(
-                runtime=self.runtime_id,
-                event_type="saga.step_start",
-                stage=ctx.stage.capability,
-                task_id=task_id,
-                step_name=step.name,
-                payload={"kind": step.kind.value},
-            ))
+            telemetry.append(
+                build_runtime_event(
+                    runtime=self.runtime_id,
+                    event_type="saga.step_start",
+                    stage=ctx.stage.capability,
+                    task_id=task_id,
+                    step_name=step.name,
+                    payload={"kind": step.kind.value},
+                )
+            )
 
             try:
                 outcome = await self._dispatch_step(step, state, ctx, telemetry)
@@ -477,7 +490,10 @@ class QuadroSagaRuntime(FrameworkRuntime):
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Saga %r step %r raised %s: %s",
-                    saga.name, step.name, type(exc).__name__, exc,
+                    saga.name,
+                    step.name,
+                    type(exc).__name__,
+                    exc,
                 )
                 return await self._handle_step_failure(
                     saga=saga,
@@ -516,15 +532,17 @@ class QuadroSagaRuntime(FrameworkRuntime):
                 0,
                 int((datetime.now(UTC) - step_start).total_seconds() * 1000),
             )
-            telemetry.append(build_runtime_event(
-                runtime=self.runtime_id,
-                event_type="saga.step_end",
-                stage=ctx.stage.capability,
-                task_id=task_id,
-                step_name=step.name,
-                duration_ms=duration_ms,
-                payload={"kind": step.kind.value},
-            ))
+            telemetry.append(
+                build_runtime_event(
+                    runtime=self.runtime_id,
+                    event_type="saga.step_end",
+                    stage=ctx.stage.capability,
+                    task_id=task_id,
+                    step_name=step.name,
+                    duration_ms=duration_ms,
+                    payload={"kind": step.kind.value},
+                )
+            )
 
             self._persist(state, ctx)
 
@@ -539,13 +557,15 @@ class QuadroSagaRuntime(FrameworkRuntime):
         if state.completed_steps:
             last_step_name = next(reversed(state.completed_steps))
             final_output = state.completed_steps[last_step_name]
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type="saga.complete",
-            stage=ctx.stage.capability,
-            task_id=task_id,
-            payload={"saga": saga.name},
-        ))
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type="saga.complete",
+                stage=ctx.stage.capability,
+                task_id=task_id,
+                payload={"saga": saga.name},
+            )
+        )
 
         return StageRunResult(
             output=final_output,
@@ -621,9 +641,7 @@ class QuadroSagaRuntime(FrameworkRuntime):
         retry_cfg = step.modifiers.get("retry")
         deadline_cfg = step.modifiers.get("deadline")
         attempts = retry_cfg["attempts"] if retry_cfg else 1
-        catch: tuple[type[BaseException], ...] = (
-            retry_cfg["on"] if retry_cfg else ()
-        )
+        catch: tuple[type[BaseException], ...] = retry_cfg["on"] if retry_cfg else ()
         backoff = retry_cfg["backoff"] if retry_cfg else "fixed"
         timeout = deadline_cfg["seconds"] if deadline_cfg else None
 
@@ -656,7 +674,11 @@ class QuadroSagaRuntime(FrameworkRuntime):
                 if attempt < attempts:
                     logger.debug(
                         "Saga %r step %r attempt %d/%d failed (%s); retrying",
-                        state.saga_name, step.name, attempt, attempts, exc,
+                        state.saga_name,
+                        step.name,
+                        attempt,
+                        attempts,
+                        exc,
                     )
                     sleep_seconds = _backoff_seconds(attempt, backoff)
                     self._emit_retry_attempt(
@@ -883,7 +905,9 @@ class QuadroSagaRuntime(FrameworkRuntime):
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "Saga %r evidence step %r capture raised; skipping: %s",
-                state.saga_name, step.name, exc,
+                state.saga_name,
+                step.name,
+                exc,
             )
             return None
         state.evidence[step.name] = record
@@ -904,11 +928,13 @@ class QuadroSagaRuntime(FrameworkRuntime):
         """
         saga_ctx = self._saga_context(state, ctx)
         value = step.payload["capture"](saga_ctx)
-        state.stamps.append({
-            "key": step.name,
-            "value": value,
-            "timestamp": datetime.now(UTC).isoformat(),
-        })
+        state.stamps.append(
+            {
+                "key": step.name,
+                "value": value,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         return value
 
     async def _run_parallel(
@@ -1148,15 +1174,17 @@ class QuadroSagaRuntime(FrameworkRuntime):
         }
         if extra_payload:
             payload.update(extra_payload)
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type=event_type,
-            stage=ctx.stage.capability,
-            task_id=ctx.task["task_id"],
-            step_name=parallel_name,
-            duration_ms=duration_ms,
-            payload=payload,
-        ))
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type=event_type,
+                stage=ctx.stage.capability,
+                task_id=ctx.task["task_id"],
+                step_name=parallel_name,
+                duration_ms=duration_ms,
+                payload=payload,
+            )
+        )
 
     def _emit_retry_attempt(
         self,
@@ -1170,18 +1198,20 @@ class QuadroSagaRuntime(FrameworkRuntime):
     ) -> None:
         if telemetry is None:
             return
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type="saga.retry_attempt",
-            stage=ctx.stage.capability,
-            task_id=ctx.task["task_id"],
-            step_name=step.name,
-            payload={
-                "attempt_number": attempt_number,
-                "last_error_type": error_type,
-                "sleep_seconds_before_next": sleep_seconds_before_next,
-            },
-        ))
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type="saga.retry_attempt",
+                stage=ctx.stage.capability,
+                task_id=ctx.task["task_id"],
+                step_name=step.name,
+                payload={
+                    "attempt_number": attempt_number,
+                    "last_error_type": error_type,
+                    "sleep_seconds_before_next": sleep_seconds_before_next,
+                },
+            )
+        )
 
     @staticmethod
     def _find_branch_step(branch: BuiltBranch, step_name: str) -> Step:
@@ -1301,15 +1331,17 @@ class QuadroSagaRuntime(FrameworkRuntime):
         payload: dict[str, Any] = {"kind": step.kind.value, "step_name": step.name}
         if extra_payload:
             payload.update(extra_payload)
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type=event_type,
-            stage=ctx.stage.capability,
-            task_id=ctx.task["task_id"],
-            step_name=step.name,
-            duration_ms=duration_ms,
-            payload=payload,
-        ))
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type=event_type,
+                stage=ctx.stage.capability,
+                task_id=ctx.task["task_id"],
+                step_name=step.name,
+                duration_ms=duration_ms,
+                payload=payload,
+            )
+        )
 
         if self._has_compensations_to_apply(saga, state):
             terminal_reason = await self._apply_compensations(
@@ -1417,14 +1449,14 @@ class QuadroSagaRuntime(FrameworkRuntime):
                         branch = self._find_branch_by_name(step, branch_name)
                     except KeyError:
                         continue
-                    branch_state = (
-                        state.branch_states
-                        .get(step_name, {})
-                        .get(branch_name)
+                    branch_state = state.branch_states.get(step_name, {}).get(
+                        branch_name
                     )
                     if branch_state is None:
                         continue
-                    for branch_step_name in reversed(list(branch_state.completed_steps.keys())):
+                    for branch_step_name in reversed(
+                        list(branch_state.completed_steps.keys())
+                    ):
                         if branch_step_name not in branch.compensations:
                             continue
                         log_key = f"{step_name}.{branch_name}.{branch_step_name}"
@@ -1442,7 +1474,10 @@ class QuadroSagaRuntime(FrameworkRuntime):
                         invoked += 1
                         if outcome == "failed":
                             failed += 1
-                            if branch.compensations[branch_step_name].get("on_failure") == "halt":
+                            if (
+                                branch.compensations[branch_step_name].get("on_failure")
+                                == "halt"
+                            ):
                                 halted_step = log_key
                                 break
                     if halted_step is not None:
@@ -1479,17 +1514,19 @@ class QuadroSagaRuntime(FrameworkRuntime):
         else:
             terminal_reason = f"compensated:{failed_step}"
 
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type="saga.rollback_complete",
-            stage=ctx.stage.capability,
-            task_id=ctx.task["task_id"],
-            payload={
-                "compensations_invoked": invoked,
-                "compensations_failed": failed,
-                "terminal_reason": terminal_reason,
-            },
-        ))
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type="saga.rollback_complete",
+                stage=ctx.stage.capability,
+                task_id=ctx.task["task_id"],
+                payload={
+                    "compensations_invoked": invoked,
+                    "compensations_failed": failed,
+                    "terminal_reason": terminal_reason,
+                },
+            )
+        )
         return terminal_reason
 
     async def _invoke_compensation(
@@ -1506,22 +1543,26 @@ class QuadroSagaRuntime(FrameworkRuntime):
         undo = comp_cfg["undo"]
         on_failure = comp_cfg.get("on_failure", "continue")
 
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type="saga.compensation_start",
-            stage=ctx.stage.capability,
-            task_id=ctx.task["task_id"],
-            step_name=log_key,
-            payload={"step": log_key, "attempt_number": 1},
-        ))
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type="saga.compensation_started",
-            stage=ctx.stage.capability,
-            task_id=ctx.task["task_id"],
-            step_name=log_key,
-            payload={"step": log_key, "attempt_number": 1},
-        ))
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type="saga.compensation_start",
+                stage=ctx.stage.capability,
+                task_id=ctx.task["task_id"],
+                step_name=log_key,
+                payload={"step": log_key, "attempt_number": 1},
+            )
+        )
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type="saga.compensation_started",
+                stage=ctx.stage.capability,
+                task_id=ctx.task["task_id"],
+                step_name=log_key,
+                payload={"step": log_key, "attempt_number": 1},
+            )
+        )
 
         comp_start = datetime.now(UTC)
         saga_ctx = self._saga_context(state_for_ctx, ctx)
@@ -1535,59 +1576,69 @@ class QuadroSagaRuntime(FrameworkRuntime):
                 0,
                 int((datetime.now(UTC) - comp_start).total_seconds() * 1000),
             )
-            state_for_log.compensations_run.append({
-                "step": log_key,
-                "outcome": "failed",
-                "duration_ms": duration_ms,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "error_type": type(exc).__name__,
-                "error_message": str(exc)[:500],
-            })
-            telemetry.append(build_runtime_event(
-                runtime=self.runtime_id,
-                event_type="saga.compensation_failed",
-                stage=ctx.stage.capability,
-                task_id=ctx.task["task_id"],
-                step_name=log_key,
-                duration_ms=duration_ms,
-                payload={
+            state_for_log.compensations_run.append(
+                {
                     "step": log_key,
+                    "outcome": "failed",
+                    "duration_ms": duration_ms,
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "error_type": type(exc).__name__,
                     "error_message": str(exc)[:500],
-                    "duration_ms": duration_ms,
-                    "on_failure": on_failure,
-                },
-            ))
+                }
+            )
+            telemetry.append(
+                build_runtime_event(
+                    runtime=self.runtime_id,
+                    event_type="saga.compensation_failed",
+                    stage=ctx.stage.capability,
+                    task_id=ctx.task["task_id"],
+                    step_name=log_key,
+                    duration_ms=duration_ms,
+                    payload={
+                        "step": log_key,
+                        "error_type": type(exc).__name__,
+                        "error_message": str(exc)[:500],
+                        "duration_ms": duration_ms,
+                        "on_failure": on_failure,
+                    },
+                )
+            )
             return "failed"
 
         duration_ms = max(
             0,
             int((datetime.now(UTC) - comp_start).total_seconds() * 1000),
         )
-        state_for_log.compensations_run.append({
-            "step": log_key,
-            "outcome": "ok",
-            "duration_ms": duration_ms,
-            "timestamp": datetime.now(UTC).isoformat(),
-        })
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type="saga.compensation_end",
-            stage=ctx.stage.capability,
-            task_id=ctx.task["task_id"],
-            step_name=log_key,
-            duration_ms=duration_ms,
-            payload={"step": log_key, "duration_ms": duration_ms},
-        ))
-        telemetry.append(build_runtime_event(
-            runtime=self.runtime_id,
-            event_type="saga.compensation_completed",
-            stage=ctx.stage.capability,
-            task_id=ctx.task["task_id"],
-            step_name=log_key,
-            duration_ms=duration_ms,
-            payload={"step": log_key, "duration_ms": duration_ms},
-        ))
+        state_for_log.compensations_run.append(
+            {
+                "step": log_key,
+                "outcome": "ok",
+                "duration_ms": duration_ms,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type="saga.compensation_end",
+                stage=ctx.stage.capability,
+                task_id=ctx.task["task_id"],
+                step_name=log_key,
+                duration_ms=duration_ms,
+                payload={"step": log_key, "duration_ms": duration_ms},
+            )
+        )
+        telemetry.append(
+            build_runtime_event(
+                runtime=self.runtime_id,
+                event_type="saga.compensation_completed",
+                stage=ctx.stage.capability,
+                task_id=ctx.task["task_id"],
+                step_name=log_key,
+                duration_ms=duration_ms,
+                payload={"step": log_key, "duration_ms": duration_ms},
+            )
+        )
         del display_step  # retained in signature for readable call sites
         return "ok"
 
@@ -1618,7 +1669,9 @@ class QuadroSagaRuntime(FrameworkRuntime):
             return
         key = f"_tokens:{task_id}"
         try:
-            existing = (board_fn("board.get_data", {"key": key}) or {}).get("value") or {}
+            existing = (board_fn("board.get_data", {"key": key}) or {}).get(
+                "value"
+            ) or {}
         except Exception as exc:  # noqa: BLE001
             logger.debug("tokens: failed to read %s: %s", key, exc)
             existing = {}
@@ -1668,7 +1721,9 @@ class QuadroSagaRuntime(FrameworkRuntime):
             return
         key = f"_tokens:{task_id}"
         try:
-            existing = (board_fn("board.get_data", {"key": key}) or {}).get("value") or {}
+            existing = (board_fn("board.get_data", {"key": key}) or {}).get(
+                "value"
+            ) or {}
         except Exception as exc:  # noqa: BLE001
             logger.debug("reasoners: failed to read %s: %s", key, exc)
             existing = {}
@@ -1763,9 +1818,7 @@ class QuadroSagaRuntime(FrameworkRuntime):
         """
         rid = getattr(reasoner, "reasoner_id", None)
         if not rid:
-            raise ValueError(
-                "Reasoner must have a non-empty `reasoner_id` attribute"
-            )
+            raise ValueError("Reasoner must have a non-empty `reasoner_id` attribute")
         self._reasoners[rid] = reasoner
 
     # ── Persistence helpers ──────────────────────────────────────────────────

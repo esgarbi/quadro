@@ -78,6 +78,7 @@ logging.basicConfig(
 # harmless, but noisy. Suppress.
 logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 
+
 # Post-stop shutdown race: once ``LlmTokenBudgetSponsor`` returns ``Stop``,
 # the RunLoop begins tearing down workers and the chief. Meanwhile,
 # ``ChatOpenAI.ainvoke`` calls already in flight (and chief policy
@@ -94,9 +95,7 @@ logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 # filters below silence only these specific shutdown-race messages so
 # debug-mode runs finish cleanly; everything else logs as usual.
 class _SilenceShutdownRace(logging.Filter):
-    _MATCHES = (
-        "cannot schedule new futures after shutdown",
-    )
+    _MATCHES = ("cannot schedule new futures after shutdown",)
 
     def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
@@ -164,9 +163,7 @@ class TicketTag(BaseModel):
     ``classify_failed`` on a schema-validation miss."""
 
     urgency: Literal["low", "medium", "high", "critical"]
-    category: Literal[
-        "billing", "account", "outage", "feature_request", "other"
-    ]
+    category: Literal["billing", "account", "outage", "feature_request", "other"]
     suggested_reply: str
 
 
@@ -238,7 +235,9 @@ def _client_factory():
     )
 
 
-def _classify_stage_config(stage_mode: str, *, token_reporter=None) -> dict[str, object]:
+def _classify_stage_config(
+    stage_mode: str, *, token_reporter=None
+) -> dict[str, object]:
     """Stage-mode-specific kwargs for the classifier stage.
 
     The compat path builds an explicit ``execute_fn`` via
@@ -248,7 +247,11 @@ def _classify_stage_config(stage_mode: str, *, token_reporter=None) -> dict[str,
     ``LangChainChiefRuntime`` handles the stage.
     """
     if stage_mode == "native":
-        return {"supervisor": lambda: build_classifier_supervisor(HERE / "prompts" / "classify.md")}
+        return {
+            "supervisor": lambda: build_classifier_supervisor(
+                HERE / "prompts" / "classify.md"
+            )
+        }
     if stage_mode == "compat":
         execute_fn = make_auto_execute_fn(
             capability="classify",
@@ -317,9 +320,7 @@ def build_runtime_and_pipeline(*, stage_mode: str = "native"):
 # ── Run artefact serialisation ────────────────────────────────────────────────
 
 
-def _ticket_records(
-    final_tasks: list[dict], tickets: list[dict]
-) -> list[dict]:
+def _ticket_records(final_tasks: list[dict], tickets: list[dict]) -> list[dict]:
     """Build ticket records from task-linked IDs (order independent)."""
     return build_ticket_records(final_tasks, tickets, logger=logger)
 
@@ -354,9 +355,7 @@ def _write_run_json(
             "wall_time_s": round(wall_time_s, 2),
             "final_decision": final_decision,
             "final_reason": final_reason,
-            "generated_at": datetime.now(timezone.utc).isoformat(
-                timespec="seconds"
-            ),
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         },
         "summary": {
             "classified": classified,
@@ -438,9 +437,7 @@ def main(argv: list[str] | None = None) -> int:
             for t in tasks
             if t["status"] not in _TERMINAL and t["status"] != "UNASSIGNED"
         )
-        pending = [
-            t["task_id"] for t in tasks if t["status"] not in _TERMINAL
-        ]
+        pending = [t["task_id"] for t in tasks if t["status"] not in _TERMINAL]
         # Keep the queue key in sync so QueueDepthSponsor sees the real backlog.
         bc.put_data("tickets_queue", pending)
 
@@ -505,7 +502,7 @@ def main(argv: list[str] | None = None) -> int:
         meters = entry.get("meters", {})
         tokens_at = int(meters.get("llm_tokens") or 0)
         print(
-            f"    {entry['decision']:<8}  {entry.get('reason','')!r:<50}"
+            f"    {entry['decision']:<8}  {entry.get('reason', '')!r:<50}"
             f"  @ {tokens_at:>5} tok"
         )
     print("=" * 72)
@@ -523,9 +520,7 @@ def main(argv: list[str] | None = None) -> int:
     # A budget-tripped run exits with a non-zero code so CI/operators can
     # distinguish "budget stopped us" from "queue naturally drained".
     last = log[-1] if log else {}
-    if last.get("decision") == "stop" and "budget_exhausted" in last.get(
-        "reason", ""
-    ):
+    if last.get("decision") == "stop" and "budget_exhausted" in last.get("reason", ""):
         return 2
     return 0
 

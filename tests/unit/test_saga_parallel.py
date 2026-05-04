@@ -50,7 +50,9 @@ def _run(saga, *, task_id: str = "t1", store: dict | None = None):
     runtime = QuadroSagaRuntime()
     spec = StageSpec(capability="x", saga=saga, failure_status="failed")
     actual_store = {} if store is None else store
-    result = asyncio.run(runtime.run_stage(_ctx(spec, {"task_id": task_id}, actual_store)))
+    result = asyncio.run(
+        runtime.run_stage(_ctx(spec, {"task_id": task_id}, actual_store))
+    )
     return result, actual_store
 
 
@@ -107,8 +109,7 @@ def test_all_one_branch_fails_parallel_step_fails_with_branch_diagnostic() -> No
     assert failed[-1]["step_name"] == "fanout"
     assert "Parallel" in failed[-1]["payload"]["error_type"]
     branch_failed = [
-        e for e in result.telemetry
-        if e["event_type"] == "saga.parallel_branch_failed"
+        e for e in result.telemetry if e["event_type"] == "saga.parallel_branch_failed"
     ]
     assert len(branch_failed) == 1
     assert branch_failed[0]["payload"]["branch_name"] == "b"
@@ -126,7 +127,10 @@ def test_all_branch_outputs_accessible_via_nested_dict_in_later_step() -> None:
                 lambda b: b.deterministic("right", lambda ctx: 32),
             ],
         )
-        .deterministic("merge", lambda ctx: ctx.step["fanout"]["left"] + ctx.step["fanout"]["right"])
+        .deterministic(
+            "merge",
+            lambda ctx: ctx.step["fanout"]["left"] + ctx.step["fanout"]["right"],
+        )
         .build()
     )
 
@@ -152,7 +156,8 @@ def test_all_emits_parallel_branch_start_and_completion_events() -> None:
     result, _store = _run(saga)
 
     branch_events = [
-        e for e in result.telemetry
+        e
+        for e in result.telemetry
         if e["event_type"].startswith("saga.parallel_branch_")
     ]
     assert [e["event_type"] for e in branch_events] == [
@@ -169,8 +174,7 @@ def test_all_emits_parallel_branch_start_and_completion_events() -> None:
     ]
     assert all(e["payload"]["parallel_step_name"] == "fanout" for e in branch_events)
     completed = [
-        e for e in branch_events
-        if e["event_type"] == "saga.parallel_branch_completed"
+        e for e in branch_events if e["event_type"] == "saga.parallel_branch_completed"
     ]
     assert all(isinstance(e["duration_ms"], int) for e in completed)
 
@@ -224,8 +228,12 @@ def test_all_resume_after_partial_completion_re_invokes_only_pending_branches() 
         .parallel(
             "fanout",
             branches=[
-                lambda b: b.deterministic("a", lambda ctx: calls.append("a") or "a_out"),
-                lambda b: b.deterministic("b", lambda ctx: calls.append("b") or "b_out"),
+                lambda b: b.deterministic(
+                    "a", lambda ctx: calls.append("a") or "a_out"
+                ),
+                lambda b: b.deterministic(
+                    "b", lambda ctx: calls.append("b") or "b_out"
+                ),
             ],
         )
         .build()
@@ -270,7 +278,9 @@ def test_all_resume_after_partial_completion_re_invokes_only_pending_branches() 
 
     assert calls == ["b"]
     assert result.output == {"a": "a_out", "b": "b_out"}
-    assert store["_saga:t1"]["branch_states"]["fanout"]["a"]["completed_steps"] == {"a": "a_out"}
+    assert store["_saga:t1"]["branch_states"]["fanout"]["a"]["completed_steps"] == {
+        "a": "a_out"
+    }
 
 
 # ── join="any" ───────────────────────────────────────────────────────────────
@@ -334,12 +344,13 @@ def test_any_cancelled_branches_do_not_fire_compensations() -> None:
             branches=[
                 lambda b: (
                     b.deterministic("slow_pre", lambda ctx: "side_effect")
-                    .compensate("slow_pre", undo=lambda ctx: order.append("slow_pre_undo"))
+                    .compensate(
+                        "slow_pre", undo=lambda ctx: order.append("slow_pre_undo")
+                    )
                     .deterministic("slow", _slow_after_side_effect)
                 ),
-                lambda b: (
-                    b.deterministic("fast", _fast)
-                    .compensate("fast", undo=lambda ctx: order.append("fast_undo"))
+                lambda b: b.deterministic("fast", _fast).compensate(
+                    "fast", undo=lambda ctx: order.append("fast_undo")
                 ),
             ],
         )
@@ -378,7 +389,8 @@ def test_any_emits_cancelled_event_for_losing_branches() -> None:
     result, _store = _run(saga)
 
     cancelled = [
-        e for e in result.telemetry
+        e
+        for e in result.telemetry
         if e["event_type"] == "saga.parallel_branch_cancelled"
     ]
     assert len(cancelled) == 1
@@ -536,17 +548,14 @@ def test_n_of_m_exactly_n_succeed_others_cancelled_no_compensations() -> None:
             "fanout",
             join=("n_of_m", 2),
             branches=[
-                lambda b: (
-                    b.deterministic("a", _fast_a)
-                    .compensate("a", undo=lambda ctx: order.append("a_undo"))
+                lambda b: b.deterministic("a", _fast_a).compensate(
+                    "a", undo=lambda ctx: order.append("a_undo")
                 ),
-                lambda b: (
-                    b.deterministic("b", _fast_b)
-                    .compensate("b", undo=lambda ctx: order.append("b_undo"))
+                lambda b: b.deterministic("b", _fast_b).compensate(
+                    "b", undo=lambda ctx: order.append("b_undo")
                 ),
-                lambda b: (
-                    b.deterministic("c", _slow)
-                    .compensate("c", undo=lambda ctx: order.append("c_undo"))
+                lambda b: b.deterministic("c", _slow).compensate(
+                    "c", undo=lambda ctx: order.append("c_undo")
                 ),
             ],
         )

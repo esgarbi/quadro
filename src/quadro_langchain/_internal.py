@@ -260,16 +260,16 @@ def _extract_token_usage(messages: Any) -> int:
     return total
 
 
-def _report_tokens(
-    reporter: Callable[[int], None] | None, messages: Any
-) -> None:
+def _report_tokens(reporter: Callable[[int], None] | None, messages: Any) -> None:
     if reporter is None:
         return
     payload_hits = 0
     try:
         tokens = _extract_token_usage(messages)
         payload_hits = sum(
-            1 for message in (messages or []) if _find_usage_payload(message) is not None
+            1
+            for message in (messages or [])
+            if _find_usage_payload(message) is not None
         )
     except Exception:  # noqa: BLE001
         tokens = 0
@@ -408,9 +408,19 @@ async def _run_chief_workflow(
 
         messages.append(ai_msg)
         for call in tool_calls:
-            name = call.get("name") if isinstance(call, dict) else getattr(call, "name", "")
-            args = call.get("args") if isinstance(call, dict) else getattr(call, "args", {})
-            call_id = call.get("id") if isinstance(call, dict) else getattr(call, "id", "")
+            name = (
+                call.get("name")
+                if isinstance(call, dict)
+                else getattr(call, "name", "")
+            )
+            args = (
+                call.get("args")
+                if isinstance(call, dict)
+                else getattr(call, "args", {})
+            )
+            call_id = (
+                call.get("id") if isinstance(call, dict) else getattr(call, "id", "")
+            )
             tool_obj = tools_by_name.get(name)
             if tool_obj is None:
                 tool_output: Any = f"Tool {name!r} not found."

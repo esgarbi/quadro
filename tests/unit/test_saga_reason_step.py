@@ -95,6 +95,7 @@ def _fake_board_fn(store: dict) -> Any:
         if intent == "board.get_full_state":
             return {"tasks": store.get("_tasks") or []}
         raise AssertionError(f"unexpected intent: {intent}")
+
     return _fn
 
 
@@ -112,6 +113,7 @@ def _ctx(spec: StageSpec, task: dict, store: dict) -> RuntimeContext:
 
 class _SimpleOutput(BaseModel):
     """Minimal pydantic schema used to verify schema validation works."""
+
     value: str
 
 
@@ -210,6 +212,7 @@ def test_reason_step_serializes_dict_user_message_to_json() -> None:
     msg = reasoner.calls[0]["user_message"]
     assert isinstance(msg, str)
     import json
+
     parsed = json.loads(msg)
     assert parsed == {"topic": "x", "items": [1, 2, 3]}
 
@@ -290,9 +293,7 @@ def test_reason_step_without_schema_returns_raw_text() -> None:
     reasoner.queue("just a string", tokens=42)
 
     saga = (
-        Saga("test")
-        .reason("speak", prompt="p", user_message=lambda ctx: "hi")
-        .build()
+        Saga("test").reason("speak", prompt="p", user_message=lambda ctx: "hi").build()
     )
 
     runtime = QuadroSagaRuntime()
@@ -309,9 +310,7 @@ def test_runtime_raises_when_reason_step_has_no_reasoner_registered() -> None:
     """Dispatching a reason step against a runtime with no registered
     reasoner raises a clear error rather than silently doing nothing."""
     saga = (
-        Saga("test")
-        .reason("speak", prompt="p", user_message=lambda ctx: "hi")
-        .build()
+        Saga("test").reason("speak", prompt="p", user_message=lambda ctx: "hi").build()
     )
 
     runtime = QuadroSagaRuntime()
@@ -338,9 +337,7 @@ def test_runtime_can_register_multiple_reasoners_by_id() -> None:
     runtime.register_reasoner(reasoner_b)
 
     saga = (
-        Saga("test")
-        .reason("speak", prompt="p", user_message=lambda ctx: "hi")
-        .build()
+        Saga("test").reason("speak", prompt="p", user_message=lambda ctx: "hi").build()
     )
     spec = StageSpec(capability="x", saga=saga)
 
@@ -356,16 +353,10 @@ def test_builder_rejects_reason_with_neither_prompt_str_nor_path() -> None:
     """The .reason() builder validates the prompt parameter at build
     time — must be str or Path."""
     with pytest.raises(TypeError, match="prompt must be"):
-        (
-            Saga("test")
-            .reason("bad", prompt=123, user_message=lambda ctx: "hi")
-        )
+        (Saga("test").reason("bad", prompt=123, user_message=lambda ctx: "hi"))
 
 
 def test_builder_rejects_reason_with_non_callable_user_message() -> None:
     """The .reason() builder validates user_message at build time."""
     with pytest.raises(TypeError, match="user_message must be callable"):
-        (
-            Saga("test")
-            .reason("bad", prompt="p", user_message="not a callable")
-        )
+        (Saga("test").reason("bad", prompt="p", user_message="not a callable"))

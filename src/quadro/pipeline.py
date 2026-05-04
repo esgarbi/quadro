@@ -686,7 +686,9 @@ class Pipeline:
                 if output:
                     logger.info("Chief: %s", output[:200])
                 else:
-                    logger.warning("Chief produced no output for current board snapshot")
+                    logger.warning(
+                        "Chief produced no output for current board snapshot"
+                    )
             except Exception as exc:
                 logger.error("Chief policy error: %s", exc)
 

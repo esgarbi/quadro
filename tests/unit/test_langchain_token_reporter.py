@@ -96,9 +96,7 @@ def test_find_usage_payload_response_metadata_token_usage_shape() -> None:
 def test_find_usage_payload_skips_empty_usage_metadata_and_falls_back() -> None:
     msg = NS(
         usage_metadata={},
-        response_metadata={
-            "token_usage": {"prompt_tokens": 4, "completion_tokens": 3}
-        },
+        response_metadata={"token_usage": {"prompt_tokens": 4, "completion_tokens": 3}},
     )
     payload = _find_usage_payload(msg)
     assert payload is not None

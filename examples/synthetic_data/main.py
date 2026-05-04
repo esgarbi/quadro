@@ -506,8 +506,7 @@ def _print_scale_projection(estimator: Estimator, passage_count: int) -> None:
         f"{passage_count // 2:,} reasoning tasks = {task_count:,} total tasks"
     )
     print(
-        "This scales the sampled WikiText workload shape; "
-        "it does not load more rows."
+        "This scales the sampled WikiText workload shape; it does not load more rows."
     )
     print(
         "Confidence interval includes parameter-uncertainty contribution "
@@ -642,7 +641,9 @@ def main() -> None:
 
     if not args.generate_all:
         print()
-        print("Estimate complete. Run with --generate-all to execute the full pipeline.")
+        print(
+            "Estimate complete. Run with --generate-all to execute the full pipeline."
+        )
         return
 
     print()
@@ -661,12 +662,14 @@ def main() -> None:
     built = pipeline.build()
     runtime.sponsor(
         GoalSponsor(
-            lambda state: sum(
-                1
-                for task in state.get("tasks", [])
-                if task.get("status") in ("qa_done", "reasoning_done")
+            lambda state: (
+                sum(
+                    1
+                    for task in state.get("tasks", [])
+                    if task.get("status") in ("qa_done", "reasoning_done")
+                )
+                >= len(queue)
             )
-            >= len(queue)
         )
     ).poll_every(1.0).run(built)
 
