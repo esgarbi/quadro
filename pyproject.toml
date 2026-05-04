@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quadro"
-version = "0.1.0"
+version = "0.8.0"
 description = "Board-centric multi-agent coordination runtime with A2A-style contracts"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -30,24 +30,35 @@ otel = [
     "opentelemetry-api>=1.20",
     "opentelemetry-sdk>=1.20",
 ]
+maf = [
+    "agent-framework>=1.0",
+]
 langchain = [
     "langchain-core>=0.3,<0.4",
-    "langchain-openai>=0.2,<0.3",
+    "langchain-openai>=0.3,<0.4",
+]
+anthropic = [
+    "anthropic>=0.40,<1.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["quadro*", "quadro_maf*", "quadro_langchain*", "quadro_anthropic*"]
 
 [tool.setuptools.package-data]
 quadro = ["py.typed"]
+quadro_maf = ["py.typed"]
+quadro_langchain = ["py.typed"]
+quadro_anthropic = ["py.typed"]
 
 [tool.ruff]
 line-length = 88
 target-version = "py311"
 extend-exclude = [
-    "examples/microsoft_agent_framework/newsroom/output/",
-    "examples/microsoft_agent_framework/newsroom/output_sample/",
-    "examples/microsoft_agent_framework/ordering_system/output/",
+    "examples/newsroom/output/",
+    "examples/newsroom/output_sample/",
+    "examples/ordering/output/",
+    "examples/synthetic_data/output/",
 ]
 
 [tool.ruff.lint]
@@ -79,7 +90,7 @@ pythonpath = ["src"]
 addopts = "--strict-markers"
 
 [tool.coverage.run]
-source = ["src/quadro"]
+source = ["src/quadro", "src/quadro_maf", "src/quadro_langchain", "src/quadro_anthropic"]
 branch = true
 
 [tool.coverage.report]

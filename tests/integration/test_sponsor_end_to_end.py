@@ -24,6 +24,7 @@ from quadro.sponsor import (
     GoalSponsor,
     Lease,
     ScriptedSponsor,
+    Stop,
     TickBudgetSponsor,
 )
 
@@ -158,3 +159,28 @@ def test_end_to_end_sponsor_log_records_lease_chain(tmp_path: Path) -> None:
     assert status["active_lease"] is None  # cleared on finalise
     assert status["draining"] is False
     assert status["sponsor_id"] == "all_of"
+
+
+def test_sponsor_status_meters_refresh_while_lease_is_active(tmp_path: Path) -> None:
+    runtime = _runtime_with_backend(tmp_path)
+    pipeline = _build_manual_pipeline(runtime)
+    observed: list[int] = []
+
+    def on_cycle(_state: dict, cycle: int) -> None:
+        if cycle == 0:
+            runtime.meters.report_llm_tokens(123)
+        if cycle == 1:
+            status = runtime.client.get_data("_sponsor_status") or {}
+            meters = status.get("meters") or {}
+            observed.append(int(meters.get("llm_tokens") or 0))
+
+    runtime.sponsor(
+        ScriptedSponsor(
+            [
+                Continue(lease=Lease(ticks=3, llm_tokens=1_000)),
+                Stop(reason="done"),
+            ]
+        )
+    ).on_cycle(on_cycle).poll_every(0.01).ombudsman_every(1.0).run(pipeline)
+
+    assert observed == [123]

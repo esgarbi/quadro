@@ -57,6 +57,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from .estimator import Pricing
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,6 +81,7 @@ _UI_VERSION = _resolve_package_version()
 _FALLBACK_TERMINAL_STATUSES: frozenset[str] = frozenset(
     {"COMPLETE", "HUMAN_REVIEW", "ON_HOLD"}
 )
+_TOP_TASKS_LIMIT = 10
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -126,6 +129,204 @@ def _derive_col_order(
     return [*non_terminal, *terminal]
 
 
+def _safe_token_total(record: dict[str, Any]) -> int:
+    try:
+        return int(record.get("token_total") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _aggregate_token_records(
+    data: dict[str, Any],
+    tasks: list[dict],
+    *,
+    pricing: Pricing | None = None,
+) -> dict[str, Any] | None:
+    """Aggregate persisted token records for the UI Costs tab."""
+    records = [
+        value
+        for key, value in (data or {}).items()
+        if key.startswith("_token_record:") and isinstance(value, dict)
+    ]
+    if not records:
+        return None
+
+    label_by_task = {t.get("task_id"): t.get("label") for t in tasks or []}
+    by_stage: dict[str, int] = {}
+    by_reasoner: dict[str, int] = {}
+    by_task_total: dict[str, int] = {}
+    stages_by_task: dict[str, list[str]] = {}
+    total = 0
+
+    for record in records:
+        tokens = _safe_token_total(record)
+        task_id = record.get("task_id")
+        stage = record.get("stage")
+        reasoner = record.get("reasoner_id")
+        total += tokens
+
+        if stage and tokens > 0:
+            by_stage[str(stage)] = by_stage.get(str(stage), 0) + tokens
+        if reasoner and tokens > 0:
+            by_reasoner[str(reasoner)] = by_reasoner.get(str(reasoner), 0) + tokens
+        if task_id:
+            task_key = str(task_id)
+            by_task_total[task_key] = by_task_total.get(task_key, 0) + tokens
+            if stage:
+                stages = stages_by_task.setdefault(task_key, [])
+                stage_key = str(stage)
+                if stage_key not in stages:
+                    stages.append(stage_key)
+
+    task_count = len(by_task_total)
+    ranked_tasks = sorted(
+        by_task_total.items(),
+        key=lambda item: (-item[1], item[0]),
+    )
+    by_task = [
+        {
+            "task_id": task_id,
+            "label": label_by_task.get(task_id),
+            "total": tokens,
+            "stages": stages_by_task.get(task_id, []),
+        }
+        for task_id, tokens in ranked_tasks[:_TOP_TASKS_LIMIT]
+    ]
+
+    aggregates = {
+        "by_stage": by_stage,
+        "by_reasoner": by_reasoner,
+        "by_task": by_task,
+        "by_task_total": by_task_total,
+        "total": total,
+        "task_count": task_count,
+        "record_count": len(records),
+        "avg_per_task": round(total / task_count) if task_count else 0,
+    }
+    if pricing is not None:
+        aggregates["dollars"] = _compute_dollar_aggregates(records, pricing)
+    return aggregates
+
+
+def _pricing_from_data(data: dict[str, Any]) -> Pricing | None:
+    raw = (data or {}).get("_pricing")
+    if isinstance(raw, dict):
+        try:
+            return Pricing.from_dict(raw)
+        except Exception:  # noqa: BLE001
+            return None
+    return None
+
+
+def _compute_dollar_aggregates(
+    records: list[dict[str, Any]],
+    pricing: Pricing,
+) -> dict[str, Any]:
+    by_stage: dict[str, float] = {}
+    by_reasoner: dict[str, float] = {}
+    by_task_total: dict[str, float] = {}
+    total = 0.0
+    for record in records:
+        tokens = _safe_token_total(record)
+        model = (
+            record.get("model")
+            or record.get("model_id")
+            or record.get("reasoner_id")
+            or "default"
+        )
+        dollars = pricing.cost_for_tokens(str(model), tokens)
+        total += dollars
+        stage = record.get("stage")
+        reasoner = record.get("reasoner_id")
+        task_id = record.get("task_id")
+        if stage:
+            by_stage[str(stage)] = by_stage.get(str(stage), 0.0) + dollars
+        if reasoner:
+            by_reasoner[str(reasoner)] = by_reasoner.get(str(reasoner), 0.0) + dollars
+        if task_id:
+            by_task_total[str(task_id)] = by_task_total.get(str(task_id), 0.0) + dollars
+    return {
+        "total": total,
+        "by_stage": by_stage,
+        "by_reasoner": by_reasoner,
+        "by_task_total": by_task_total,
+        "source_label": pricing.source_label,
+        "last_verified": pricing.last_verified,
+        "verify_url": pricing.verify_url,
+        "models": pricing.to_dict()["models"],
+    }
+
+
+def _sponsor_status_for_ui(
+    sponsor_status: Any,
+    sponsor_log: Any,
+    token_aggregates: dict[str, Any] | None,
+    data: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Return sponsor status enriched for stable UI display."""
+    if not isinstance(sponsor_status, dict):
+        return None
+
+    status = dict(sponsor_status)
+    lease = status.get("active_lease")
+    if not isinstance(lease, dict):
+        lease = None
+
+    if lease is None and isinstance(sponsor_log, list):
+        for entry in reversed(sponsor_log):
+            if not isinstance(entry, dict):
+                continue
+            candidate = entry.get("lease")
+            if isinstance(candidate, dict):
+                lease = dict(candidate)
+                break
+
+    if lease is None and status.get("sponsor_id") == "llm_token_budget":
+        order_goal = data.get("order_goal")
+        token_budget = None
+        if isinstance(order_goal, dict):
+            token_budget = order_goal.get("token_budget")
+        try:
+            token_budget_int = int(token_budget) if token_budget is not None else None
+        except (TypeError, ValueError):
+            token_budget_int = None
+        if token_budget_int is not None and token_budget_int > 0:
+            lease = {
+                "id": None,
+                "issued_at": None,
+                "ticks": None,
+                "deadline": None,
+                "worker_invocations": None,
+                "llm_tokens": token_budget_int,
+                "board_events": None,
+                "source": "llm_token_budget",
+                "reason": f"llm_tokens_budget:0/{token_budget_int}",
+                "renewal_of": None,
+            }
+
+    if lease is not None:
+        status["active_lease"] = lease
+
+    meters = dict(status.get("meters") or {})
+    if (
+        lease is not None
+        and lease.get("llm_tokens") is not None
+        and token_aggregates is not None
+    ):
+        try:
+            aggregate_total = int(token_aggregates.get("total") or 0)
+        except (TypeError, ValueError):
+            aggregate_total = 0
+        try:
+            metered_total = int(meters.get("llm_tokens") or 0)
+        except (TypeError, ValueError):
+            metered_total = 0
+        meters["llm_tokens"] = max(metered_total, aggregate_total)
+        status["meters"] = meters
+
+    return status
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Board data source — two modes
 # ─────────────────────────────────────────────────────────────────────────────
@@ -139,6 +340,7 @@ class _DataSource:
     """
 
     def __init__(self, *, board_client=None, db_path: str | None = None) -> None:
+        self._lock = threading.RLock()
         if board_client is not None:
             self._client = board_client
             self._conn = None
@@ -176,40 +378,91 @@ class _DataSource:
             return self._client.task_history(task_id)
         return self._sqlite_task_history(task_id)
 
+    def token_aggregates(
+        self,
+        data: dict[str, Any],
+        tasks: list[dict],
+    ) -> dict[str, Any] | None:
+        if self._client is None:
+            return _aggregate_token_records(
+                data,
+                tasks,
+                pricing=_pricing_from_data(data),
+            )
+
+        records = self._client.token_records()
+        if not records:
+            return None
+        aggregate_data = {
+            f"_token_record:{record.get('task_id')}:{idx}": record
+            for idx, record in enumerate(records)
+            if isinstance(record, dict)
+        }
+        try:
+            raw_pricing = self._client.get_data("_pricing")
+        except Exception:  # noqa: BLE001
+            raw_pricing = None
+        pricing = Pricing.from_dict(raw_pricing) if isinstance(raw_pricing, dict) else None
+        aggregates = _aggregate_token_records(aggregate_data, tasks, pricing=pricing)
+        if aggregates is not None:
+            aggregates["by_stage"] = self._client.tokens_by_stage()
+            aggregates["by_reasoner"] = self._client.tokens_by_reasoner()
+        return aggregates
+
+    def task_token_records(self, task_id: str) -> list[dict]:
+        if self._client is not None:
+            return self._client.token_records(task_id=task_id)
+        return self._sqlite_task_token_records(task_id)
+
     def _sqlite_full_state(self) -> dict[str, Any]:
         import json as _json
 
         conn = self._conn
         tasks = []
-        for row in conn.execute(
-            "SELECT * FROM tasks ORDER BY priority ASC, created_at ASC"
-        ):
-            d = dict(row)
-            d["notes"] = _json.loads(d.pop("notes_json", "[]"))
-            tasks.append(d)
         agents = []
-        for row in conn.execute("SELECT * FROM agents ORDER BY agent_id ASC"):
-            d = dict(row)
-            d["capabilities"] = _json.loads(d.pop("capabilities_json", "[]"))
-            d.pop("agent_card_json", None)
-            agents.append(d)
         data: dict[str, Any] = {}
-        for row in conn.execute("SELECT key, value_json FROM data_entries"):
-            data[row["key"]] = _json.loads(row["value_json"])
+        with self._lock:
+            for row in conn.execute(
+                "SELECT * FROM tasks ORDER BY priority ASC, created_at ASC"
+            ):
+                d = dict(row)
+                d["notes"] = _json.loads(d.pop("notes_json", "[]"))
+                tasks.append(d)
+            for row in conn.execute("SELECT * FROM agents ORDER BY agent_id ASC"):
+                d = dict(row)
+                d["capabilities"] = _json.loads(d.pop("capabilities_json", "[]"))
+                d.pop("agent_card_json", None)
+                agents.append(d)
+            for row in conn.execute("SELECT key, value_json FROM data_entries"):
+                data[row["key"]] = _json.loads(row["value_json"])
         return {"tasks": tasks, "agents": agents, "data": data}
 
     def _sqlite_events_since(self, since: int) -> list[dict]:
-        rows = self._conn.execute(
-            "SELECT * FROM events WHERE sequence_id > ? ORDER BY sequence_id ASC",
-            (since,),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM events WHERE sequence_id > ? ORDER BY sequence_id ASC",
+                (since,),
+            ).fetchall()
         return [dict(r) for r in rows]
 
     def _sqlite_task_history(self, task_id: str) -> list[dict]:
-        rows = self._conn.execute(
-            "SELECT * FROM events WHERE task_id=? ORDER BY sequence_id ASC", (task_id,)
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM events WHERE task_id=? ORDER BY sequence_id ASC",
+                (task_id,),
+            ).fetchall()
         return [dict(r) for r in rows]
+
+    def _sqlite_task_token_records(self, task_id: str) -> list[dict]:
+        prefix = f"_token_record:{task_id}:"
+        state = self._sqlite_full_state()
+        records = [
+            value
+            for key, value in (state.get("data") or {}).items()
+            if key.startswith(prefix) and isinstance(value, dict)
+        ]
+        records.sort(key=lambda r: r.get("timestamp", ""))
+        return records
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -285,6 +538,11 @@ def _render_prometheus_metrics(state: dict[str, Any]) -> str:
     data = state.get("data") or {}
     chief_telem = data.get("_chief_telemetry") or {}
     sponsor_status = data.get("_sponsor_status") or {}
+    total_tokens = sum(
+        _safe_token_total(v)
+        for k, v in data.items()
+        if k.startswith("_token_record:") and isinstance(v, dict)
+    )
 
     status_counts: dict[str, int] = {}
     for t in tasks:
@@ -332,6 +590,10 @@ def _render_prometheus_metrics(state: dict[str, Any]) -> str:
     lines.append("# TYPE quadro_ombudsman_stale_count gauge")
     lines.append(f"quadro_ombudsman_stale_count {stale_count}")
 
+    lines.append("# HELP quadro_llm_tokens_total Total LLM tokens consumed.")
+    lines.append("# TYPE quadro_llm_tokens_total counter")
+    lines.append(f"quadro_llm_tokens_total {total_tokens}")
+
     return "\n".join(lines) + "\n"
 
 
@@ -365,6 +627,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_metrics()
         elif m := re.match(r"^/api/task/([^/]+)/history$", path):
             self._serve_task_history(m.group(1))
+        elif m := re.match(r"^/api/task/([^/]+)/tokens$", path):
+            self._serve_task_tokens(m.group(1))
         else:
             self._json(404, {"error": "not found"})
 
@@ -415,8 +679,19 @@ class _Handler(BaseHTTPRequestHandler):
             )
 
             chief_telem = state.get("data", {}).get("_chief_telemetry")
-            sponsor_status = state.get("data", {}).get("_sponsor_status")
-            sponsor_log = state.get("data", {}).get("_sponsor_log")
+            data = state.get("data", {})
+            sponsor_status = data.get("_sponsor_status")
+            sponsor_log = data.get("_sponsor_log")
+            aggregates = self.source.token_aggregates(
+                data,
+                state.get("tasks", []),
+            )
+            sponsor_for_ui = _sponsor_status_for_ui(
+                sponsor_status,
+                sponsor_log,
+                aggregates,
+                data,
+            )
 
             state["_meta"] = {
                 "db_label": self.db_label,
@@ -424,11 +699,13 @@ class _Handler(BaseHTTPRequestHandler):
                 "server_time": datetime.now(timezone.utc).isoformat(),
                 "col_order": col_order,
                 "chief": chief_telem,
-                "sponsor": sponsor_status,
+                "sponsor": sponsor_for_ui,
                 "sponsor_log": (
                     sponsor_log[-20:] if isinstance(sponsor_log, list) else None
                 ),
             }
+            if aggregates is not None:
+                state["_meta"]["token_aggregates"] = aggregates
             self._json(200, state)
         except Exception as exc:
             self._json(500, {"error": str(exc)})
@@ -437,6 +714,13 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             events = self.source.task_history(task_id)
             self._json(200, {"task_id": task_id, "events": events})
+        except Exception as exc:
+            self._json(500, {"error": str(exc)})
+
+    def _serve_task_tokens(self, task_id: str) -> None:
+        try:
+            records = self.source.task_token_records(task_id)
+            self._json(200, {"task_id": task_id, "records": records})
         except Exception as exc:
             self._json(500, {"error": str(exc)})
 
@@ -633,6 +917,13 @@ header h1 { font-size:13px; font-weight:600; letter-spacing:.05em;
             color:var(--accent); font-family:var(--mono); }
 .db-label { font-family:var(--mono); font-size:11px; color:var(--text3);
             background:var(--bg3); padding:2px 8px; border-radius:4px; }
+.tab-strip { display:flex; gap:4px; margin-left:12px; }
+.tab { background:none; border:1px solid var(--border); color:var(--text2);
+       padding:4px 12px; font-size:11px; font-family:var(--mono);
+       font-weight:500; letter-spacing:.04em; border-radius:4px; cursor:pointer;
+       transition:border-color .15s,color .15s,background .15s; }
+.tab:hover { border-color:var(--accent); color:var(--accent); }
+.tab.active { background:var(--bg3); border-color:var(--accent); color:var(--accent); }
 .live-dot { width:7px; height:7px; border-radius:50%;
             background:var(--green); box-shadow:0 0 6px var(--green); }
 .live-dot.dead { background:var(--red); box-shadow:0 0 6px var(--red); }
@@ -675,6 +966,10 @@ button.icon-btn:hover { border-color:var(--accent); color:var(--accent); }
 .card-hb.stale { color:var(--amber); }
 .card-hb.ok { color:var(--green); }
 .card-hb.completed { color:var(--green); opacity: 0.7; }
+.card-tokens { display:flex; align-items:center; gap:4px; font-size:10px;
+               font-family:var(--mono); color:var(--text2); margin-top:2px; }
+.card-tokens-icon { color:var(--accent); font-size:9px; }
+.card-tokens-value { font-weight:500; }
 .card-priority {
   display: inline-block;
   font-size: 9px;
@@ -772,6 +1067,92 @@ button.icon-btn:hover { border-color:var(--accent); color:var(--accent); }
 .agent-group-fill { height:100%; border-radius:2px; background:var(--green); transition:width 0.3s; }
 .agent-group-count { font-size:10px; font-family:var(--mono); color:var(--text3);
                      flex-shrink:0; white-space:nowrap; }
+#costs-view { flex:1; overflow-y:auto; padding:24px 32px; max-width:1100px;
+              margin:0 auto; width:100%; }
+.costs-headline { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+                  gap:24px; margin-bottom:32px; }
+.costs-stat { background:var(--bg2); border:1px solid var(--border);
+              border-radius:var(--radius); padding:16px 20px; }
+.costs-stat-label { font-size:10px; font-weight:700; letter-spacing:.1em;
+                    color:var(--text3); font-family:var(--mono); margin-bottom:8px; }
+.costs-stat-value { font-size:28px; font-weight:600; color:var(--text);
+                    font-family:var(--mono); letter-spacing:-.02em; }
+.costs-stat-subvalue { font-size:14px; font-weight:500; color:var(--green);
+                       font-family:var(--mono); letter-spacing:-.01em;
+                       margin-top:4px; display:flex; align-items:baseline; gap:6px; }
+.costs-stat-subvalue .costs-info { font-size:11px; color:var(--accent); }
+.costs-info { color:var(--accent); cursor:help; margin-left:4px; position:relative; }
+.costs-info:hover::after { content:attr(data-tip); position:absolute; right:0; top:18px;
+                           width:280px; white-space:normal; background:var(--bg3);
+                           border:1px solid var(--border); border-radius:6px;
+                           color:var(--text); padding:8px; z-index:5; line-height:1.4;
+                           text-transform:none; letter-spacing:normal; font-weight:400; }
+.costs-section { margin-bottom:32px; }
+.costs-section-title { font-size:11px; font-weight:700; letter-spacing:.12em;
+                       text-transform:uppercase; color:var(--text3);
+                       font-family:var(--mono); margin-bottom:12px; }
+.costs-stacked-bar { display:flex; height:32px; border-radius:var(--radius);
+                     overflow:hidden; margin-bottom:16px; background:var(--bg3); }
+.costs-stacked-segment { display:flex; align-items:center; justify-content:center;
+                         font-size:11px; font-family:var(--mono); font-weight:600;
+                         color:rgba(0,0,0,.7); transition:width .4s ease;
+                         min-width:0; overflow:hidden; }
+.costs-table { width:100%; border-collapse:collapse; font-size:12px; }
+.costs-table th { text-align:left; padding:8px 12px; font-size:10px;
+                  font-weight:600; letter-spacing:.06em; color:var(--text3);
+                  font-family:var(--mono); text-transform:uppercase;
+                  border-bottom:1px solid var(--border); }
+.costs-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
+.costs-table tr:last-child td { border-bottom:none; }
+.costs-table tr:hover td { background:var(--bg2); }
+.costs-table .costs-name { font-weight:500; }
+.costs-table .costs-value { font-family:var(--mono); text-align:right; color:var(--text2); }
+.costs-table .costs-dollars { font-family:var(--mono); text-align:right; color:var(--green); }
+.costs-table .costs-pct { font-family:var(--mono); text-align:right; font-size:11px;
+                          color:var(--text3); width:60px; }
+.costs-table .costs-task-id { font-family:var(--mono); font-size:10px;
+                              color:var(--accent); cursor:pointer; }
+.costs-table .costs-task-id:hover { text-decoration:underline; }
+.sponsor-budget { margin-top:4px; width:100%; }
+.sponsor-budget-bar { height:6px; border-radius:3px; background:var(--bg3); overflow:hidden; }
+.sponsor-budget.large .sponsor-budget-bar { height:14px; border-radius:7px; }
+.sponsor-budget-fill { height:100%; border-radius:inherit;
+                       transition:width .4s ease, background .4s ease; }
+.sponsor-budget-fill.green { background:var(--green); }
+.sponsor-budget-fill.amber { background:var(--amber); }
+.sponsor-budget-fill.red { background:var(--red); }
+.sponsor-budget-labels { display:flex; justify-content:space-between; margin-top:4px;
+                         font-size:10px; font-family:var(--mono); color:var(--text3); }
+.sponsor-budget.large .sponsor-budget-labels { font-size:12px; margin-top:6px; }
+.sw-name { font-size:13px; font-weight:600; color:var(--accent);
+           font-family:var(--mono); margin-bottom:8px;
+           display:flex; flex-wrap:wrap; gap:4px; }
+.sw-child-tag { font-size:10px; font-weight:600; color:var(--accent);
+                background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.2);
+                border-radius:4px; padding:2px 8px; display:inline-block;
+                font-family:var(--mono); text-transform:capitalize; }
+.sw-section { margin-bottom:10px; }
+.sw-section:last-child { margin-bottom:0; }
+.sw-section-label { font-size:9px; font-weight:700; letter-spacing:.08em;
+                    text-transform:uppercase; color:var(--text3);
+                    font-family:var(--mono); margin-bottom:4px; }
+.sw-pct { font-size:22px; font-weight:600; font-family:var(--mono);
+          color:var(--text); letter-spacing:-.02em; }
+.sw-pct-sub { font-size:11px; font-weight:400; color:var(--text2);
+              margin-left:4px; }
+.sw-goal-row { display:flex; align-items:center; gap:8px; }
+.sw-goal-icon { font-size:16px; line-height:1; flex-shrink:0; }
+.sw-goal-icon.met { color:var(--green); }
+.sw-goal-icon.pending { color:var(--amber); }
+.sw-goal-text { font-size:12px; font-family:var(--mono); color:var(--text2); }
+.sw-goal-fraction { font-size:20px; font-weight:600; font-family:var(--mono);
+                    color:var(--text); }
+.sw-drain-banner { display:flex; align-items:center; gap:6px; padding:4px 8px;
+                   border-radius:4px; background:rgba(251,191,36,0.12);
+                   color:var(--amber); font-size:10px; font-weight:600;
+                   font-family:var(--mono); letter-spacing:.04em; margin-top:6px; }
+.sw-drain-dot { width:6px; height:6px; border-radius:50%; background:var(--amber);
+                box-shadow:0 0 6px var(--amber); animation:pulse 1s ease-in-out infinite; }
 #events-section { flex:1; display:flex; flex-direction:column; overflow:hidden;
                   padding:10px 12px; }
 #events-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:3px; }
@@ -832,6 +1213,20 @@ button.icon-btn:hover { border-color:var(--accent); color:var(--accent); }
                   font-family:var(--mono); font-size:11px; color:var(--text2);
                   white-space:pre-wrap; word-break:break-word; max-height:200px;
                   overflow-y:auto; line-height:1.5; margin-top:8px; }
+.drawer-tokens-total { display:flex; align-items:baseline; gap:8px; margin-bottom:12px;
+                       padding:10px 14px; background:var(--bg3); border-radius:var(--radius); }
+.drawer-tokens-total-num { font-size:22px; font-weight:600; font-family:var(--mono);
+                           color:var(--text); }
+.drawer-tokens-total-label { font-size:11px; color:var(--text3); font-family:var(--mono);
+                             letter-spacing:.06em; text-transform:uppercase; }
+.drawer-tokens-table { width:100%; border-collapse:collapse; font-size:11px; }
+.drawer-tokens-table th { text-align:left; padding:6px 8px; font-size:9px;
+                          font-weight:600; letter-spacing:.06em; color:var(--text3);
+                          font-family:var(--mono); text-transform:uppercase;
+                          border-bottom:1px solid var(--border); }
+.drawer-tokens-table td { padding:6px 8px; border-bottom:1px solid var(--border);
+                          font-family:var(--mono); }
+.drawer-tokens-table tr:last-child td { border-bottom:none; }
 ::-webkit-scrollbar { width:5px; height:5px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:3px; }
@@ -854,6 +1249,10 @@ button.icon-btn:hover { border-color:var(--accent); color:var(--accent); }
   <span class="live-dot" id="live-dot"></span>
   <h1>QUADRO</h1>
   <span class="db-label">__DB_LABEL__</span>
+  <nav class="tab-strip" id="tab-strip" style="display:none">
+    <button class="tab active" data-tab="board">Board</button>
+    <button class="tab" data-tab="costs">Costs</button>
+  </nav>
   <span id="goal-badge"></span>
   <span class="spacer"></span>
   <span id="chief-pulse" title="Chief status"></span>
@@ -865,6 +1264,46 @@ button.icon-btn:hover { border-color:var(--accent); color:var(--accent); }
 </header>
 <div class="main">
   <div id="board"></div>
+  <div id="costs-view" style="display:none">
+    <div class="costs-headline">
+      <div class="costs-stat">
+        <div class="costs-stat-label">TOTAL TOKENS</div>
+        <div class="costs-stat-value" id="costs-total">—</div>
+        <div class="costs-stat-subvalue" id="costs-total-dollars" style="display:none">
+          <span id="costs-total-dollars-value">—</span>
+          <span class="costs-info" id="costs-total-dollars-info">ⓘ</span>
+        </div>
+      </div>
+      <div class="costs-stat">
+        <div class="costs-stat-label">TASKS WITH RECORDS</div>
+        <div class="costs-stat-value" id="costs-tasks">—</div>
+      </div>
+      <div class="costs-stat">
+        <div class="costs-stat-label">AVG PER TASK</div>
+        <div class="costs-stat-value" id="costs-avg">—</div>
+        <div class="costs-stat-subvalue" id="costs-avg-dollars" style="display:none">
+          <span id="costs-avg-dollars-value">—</span>
+        </div>
+      </div>
+      <div class="costs-stat" id="costs-sponsor-widget" style="display:none">
+        <div class="costs-stat-label">SPONSOR</div>
+        <div id="costs-sponsor-widget-body"></div>
+      </div>
+    </div>
+    <section class="costs-section">
+      <h3 class="costs-section-title">By stage</h3>
+      <div class="costs-stacked-bar" id="costs-stacked-bar"></div>
+      <table class="costs-table" id="costs-stage-table"></table>
+    </section>
+    <section class="costs-section" id="costs-reasoner-section" style="display:none">
+      <h3 class="costs-section-title">By reasoner</h3>
+      <table class="costs-table" id="costs-reasoner-table"></table>
+    </section>
+    <section class="costs-section">
+      <h3 class="costs-section-title">Top tasks by cost</h3>
+      <table class="costs-table" id="costs-top-tasks-table"></table>
+    </section>
+  </div>
   <aside class="right-panel">
     <div id="chief-section">
       <div class="section-title">Chief</div>
@@ -902,6 +1341,7 @@ let _state = null;
 let _colOrder = [];
 let _colOrderSet = new Set();
 let _recentEvents = [];
+let _activeTab = 'board';
 const MAX_EVENTS = 40;
 const _archivedIds = new Set();
 const _cardElements = new Map();
@@ -920,6 +1360,7 @@ const STATUS_COLORS = {
 };
 
 function statusColor(s) {
+  if (!s) return 'var(--text3)';
   if (STATUS_COLORS[s]) return STATUS_COLORS[s];
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffff;
@@ -944,6 +1385,53 @@ function el(tag, cls, text) {
   if (cls) e.className = cls;
   if (text !== undefined) e.textContent = text;
   return e;
+}
+
+function formatTokens(n) {
+  if (n == null || isNaN(n)) return '—';
+  const value = Number(n);
+  if (value < 1000) return String(Math.round(value)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (value < 10000) return (value / 1000).toFixed(1) + 'K';
+  if (value < 1000000) return Math.round(value / 1000) + 'K';
+  return (value / 1000000).toFixed(1) + 'M';
+}
+
+function formatDollars(n) {
+  if (n == null || isNaN(n)) return '—';
+  return '$' + Number(n).toFixed(2);
+}
+
+function pricingTip(dollars) {
+  if (!dollars) return '';
+  const models = Object.entries(dollars.models || {}).map(([name, value]) => {
+    return `${name}: $${value.input}/$${value.output} per MTok input/output; io_ratio ${value.io_ratio}`;
+  }).join(' | ');
+  const verify = dollars.verify_url ? ` Verify at ${dollars.verify_url}.` : '';
+  return `Pricing ${dollars.source_label || 'configured at startup'}. ${models}${verify}`;
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s == null ? '' : String(s);
+  return div.innerHTML;
+}
+
+function switchTab(tabName) {
+  _activeTab = tabName;
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabName);
+  });
+  document.getElementById('board').style.display = tabName === 'board' ? '' : 'none';
+  document.getElementById('costs-view').style.display = tabName === 'costs' ? '' : 'none';
+  document.querySelector('.right-panel').style.display = tabName === 'board' ? '' : 'none';
+  if (tabName === 'costs') renderCosts(_state);
+}
+
+function updateTabVisibility(meta) {
+  const strip = document.getElementById('tab-strip');
+  const hasRecords = meta && meta.token_aggregates;
+  strip.style.display = hasRecords ? '' : 'none';
+  if (!hasRecords && _activeTab === 'costs') switchTab('board');
 }
 
 // Column order accumulates — once a column is seen it never disappears.
@@ -975,6 +1463,275 @@ function archiveOldest(byStatus, threshold) {
     const excess = tasks.slice(0, tasks.length - threshold);
     for (const t of excess) _archivedIds.add(t.task_id);
   }
+}
+
+function renderCosts(state) {
+  const meta = state && state._meta;
+  const aggs = meta && meta.token_aggregates;
+  if (!aggs) return;
+
+  document.getElementById('costs-total').textContent = formatTokens(aggs.total);
+  document.getElementById('costs-tasks').textContent = String(aggs.task_count || 0);
+  document.getElementById('costs-avg').textContent = formatTokens(aggs.avg_per_task);
+
+  // Inline dollar sub-amounts under TOTAL TOKENS and AVG PER TASK,
+  // shown only when pricing is configured. The disclaimer ⓘ lives on
+  // the TOTAL TOKENS sub-line because that's where the prominent total
+  // dollar value sits — AVG PER TASK is clearly derived from the same
+  // pricing source so doesn't need its own ⓘ.
+  const dollars = aggs.dollars;
+  const totalDollarStat = document.getElementById('costs-total-dollars');
+  const avgDollarStat = document.getElementById('costs-avg-dollars');
+  if (dollars) {
+    totalDollarStat.style.display = '';
+    document.getElementById('costs-total-dollars-value').textContent = formatDollars(dollars.total);
+    document.getElementById('costs-total-dollars-info').dataset.tip = pricingTip(dollars);
+    avgDollarStat.style.display = '';
+    const avgDollar = aggs.task_count ? dollars.total / aggs.task_count : 0;
+    document.getElementById('costs-avg-dollars-value').textContent = formatDollars(avgDollar);
+  } else {
+    totalDollarStat.style.display = 'none';
+    avgDollarStat.style.display = 'none';
+  }
+
+  renderStageBreakdown(aggs);
+  renderReasonerBreakdown(aggs);
+  renderTopTasks(aggs);
+  renderSponsorWidget(meta);
+}
+
+function renderStageBreakdown(aggs) {
+  const bar = document.getElementById('costs-stacked-bar');
+  const table = document.getElementById('costs-stage-table');
+  const stages = Object.entries(aggs.by_stage || {}).sort((a, b) => b[1] - a[1]);
+  const total = aggs.total || 1;
+  const dollars = aggs.dollars;
+  const tip = pricingTip(dollars);
+  bar.innerHTML = '';
+  for (const [stage, tokens] of stages) {
+    const pct = (tokens / total) * 100;
+    const seg = el('div', 'costs-stacked-segment');
+    seg.style.width = `${pct}%`;
+    seg.style.background = statusColor(stage);
+    seg.title = `${stage}: ${formatTokens(tokens)} (${pct.toFixed(1)}%)`;
+    if (pct >= 8) seg.textContent = stage;
+    bar.appendChild(seg);
+  }
+  table.innerHTML = `
+    <thead><tr><th>Stage</th><th>Tokens</th>${dollars ? '<th>$ <span class="costs-info" data-tip="' + escapeHtml(tip) + '">ⓘ</span></th>' : ''}<th>%</th></tr></thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+  for (const [stage, tokens] of stages) {
+    const pct = (tokens / total) * 100;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="costs-name" style="color:${statusColor(stage)}">${escapeHtml(stage)}</td>
+      <td class="costs-value">${formatTokens(tokens)}</td>
+      ${dollars ? `<td class="costs-dollars">${formatDollars((dollars.by_stage || {})[stage])}</td>` : ''}
+      <td class="costs-pct">${pct.toFixed(1)}%</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderReasonerBreakdown(aggs) {
+  const section = document.getElementById('costs-reasoner-section');
+  const table = document.getElementById('costs-reasoner-table');
+  const reasoners = Object.entries(aggs.by_reasoner || {}).sort((a, b) => b[1] - a[1]);
+  const dollars = aggs.dollars;
+  const tip = pricingTip(dollars);
+  if (reasoners.length <= 1) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  const total = aggs.total || 1;
+  table.innerHTML = `
+    <thead><tr><th>Reasoner</th><th>Tokens</th>${dollars ? '<th>$ <span class="costs-info" data-tip="' + escapeHtml(tip) + '">ⓘ</span></th>' : ''}<th>%</th></tr></thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+  for (const [rid, tokens] of reasoners) {
+    const pct = (tokens / total) * 100;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="costs-name">${escapeHtml(rid)}</td>
+      <td class="costs-value">${formatTokens(tokens)}</td>
+      ${dollars ? `<td class="costs-dollars">${formatDollars((dollars.by_reasoner || {})[rid])}</td>` : ''}
+      <td class="costs-pct">${pct.toFixed(1)}%</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderTopTasks(aggs) {
+  const table = document.getElementById('costs-top-tasks-table');
+  const tasks = aggs.by_task || [];
+  const dollars = aggs.dollars;
+  const tip = pricingTip(dollars);
+  table.innerHTML = `
+    <thead><tr><th>Task</th><th>Label</th><th>Stages</th><th>Tokens</th>${dollars ? '<th>$ <span class="costs-info" data-tip="' + escapeHtml(tip) + '">ⓘ</span></th>' : ''}</tr></thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+  for (const t of tasks) {
+    const tr = document.createElement('tr');
+    const stages = (t.stages || []).map(s => escapeHtml(s)).join(', ');
+    tr.innerHTML = `
+      <td><span class="costs-task-id" data-task-id="${escapeHtml(t.task_id)}">${shortId(t.task_id)}</span></td>
+      <td class="costs-name">${escapeHtml(t.label || '—')}</td>
+      <td class="costs-value" style="text-align:left">${stages}</td>
+      <td class="costs-value">${formatTokens(t.total)}</td>
+      ${dollars ? `<td class="costs-dollars">${formatDollars((dollars.by_task_total || {})[t.task_id])}</td>` : ''}
+    `;
+    tr.querySelector('.costs-task-id').onclick = () => openDrawer(t.task_id);
+    tbody.appendChild(tr);
+  }
+}
+
+function buildSponsorBudgetBar(used, cap, options = {}) {
+  const large = !!options.large;
+  const wrapper = el('div', 'sponsor-budget' + (large ? ' large' : ''));
+  const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+  const band = pct < 70 ? 'green' : pct < 90 ? 'amber' : 'red';
+  const bar = el('div', 'sponsor-budget-bar');
+  const fill = el('div', `sponsor-budget-fill ${band}`);
+  fill.style.width = `${pct}%`;
+  bar.appendChild(fill);
+  wrapper.appendChild(bar);
+  const labels = el('div', 'sponsor-budget-labels');
+  labels.appendChild(el('span', 'sponsor-budget-used', `${formatTokens(used)} used`));
+  labels.appendChild(el('span', 'sponsor-budget-cap', `${formatTokens(cap)} cap`));
+  wrapper.appendChild(labels);
+  return wrapper;
+}
+
+function renderSponsorWidget(meta) {
+  const widget = document.getElementById('costs-sponsor-widget');
+  const body = document.getElementById('costs-sponsor-widget-body');
+  const sponsor = meta && meta.sponsor;
+  if (!sponsor) { widget.style.display = 'none'; return; }
+
+  const lease = sponsor.active_lease;
+  const meters = sponsor.meters || {};
+  const reason = (lease && lease.reason) || '';
+  const sponsorId = sponsor.sponsor_id || '';
+
+  const hasTokenBudget = lease && lease.llm_tokens != null;
+  const hasDeadline = lease && lease.deadline != null;
+  const hasGoal = sponsorId.indexOf('goal') !== -1
+    || reason.indexOf('goal') !== -1
+    || (meta.sponsor_log || []).some(
+         e => (e.reason || '').indexOf('goal') !== -1
+              || (e.sponsor_id || '').indexOf('goal') !== -1);
+
+  if (!hasTokenBudget && !hasGoal) {
+    widget.style.display = 'none';
+    return;
+  }
+
+  widget.style.display = '';
+  body.innerHTML = '';
+
+  const composites = new Set(['all_of', 'any_of', 'priority']);
+  const childNames = _extractChildSponsors(reason, sponsorId);
+  if (childNames.length > 0) {
+    const nameLabel = el('div', 'sw-name');
+    nameLabel.innerHTML = childNames.map(n =>
+      `<span class="sw-child-tag">${escapeHtml(n)}</span>`
+    ).join('');
+    body.appendChild(nameLabel);
+  } else if (!composites.has(sponsorId)) {
+    body.appendChild(el('div', 'sw-name', sponsorId));
+  }
+
+  if (hasTokenBudget) {
+    const sec = el('div', 'sw-section');
+    const label = el('div', 'sw-section-label', 'Token Budget');
+    sec.appendChild(label);
+
+    const used = meters.llm_tokens || 0;
+    const cap = lease.llm_tokens;
+    const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+
+    const pctLine = el('div');
+    const pctNum = el('span', 'sw-pct', `${pct.toFixed(1)}%`);
+    const pctSub = el('span', 'sw-pct-sub',
+      `${formatTokens(used)} / ${formatTokens(cap)}`);
+    pctLine.appendChild(pctNum);
+    pctLine.appendChild(pctSub);
+    sec.appendChild(pctLine);
+
+    sec.appendChild(buildSponsorBudgetBar(used, cap));
+    body.appendChild(sec);
+  }
+
+  if (hasDeadline && !hasGoal) {
+    const sec = el('div', 'sw-section');
+    const label = el('div', 'sw-section-label', 'Deadline');
+    sec.appendChild(label);
+
+    const remaining = Math.max(0,
+      Math.floor((new Date(lease.deadline) - Date.now()) / 1000));
+    const hours = Math.floor(remaining / 3600);
+    const mins = Math.floor((remaining % 3600) / 60);
+    const secs = remaining % 60;
+    const timeStr = hours > 0 ? `${hours}h ${mins}m` : mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+    sec.appendChild(el('div', 'sw-pct', timeStr));
+    sec.appendChild(el('div', 'sw-goal-text', 'remaining'));
+    body.appendChild(sec);
+  }
+
+  if (hasGoal) {
+    const sec = el('div', 'sw-section');
+    const label = el('div', 'sw-section-label', 'Goal');
+    sec.appendChild(label);
+
+    const tasks = (_state && _state.tasks) || [];
+    const total = tasks.length;
+    const done = tasks.filter(t => TERMINAL_STATUSES.has(t.status)).length;
+    const goalMet = reason.indexOf('goal_met') !== -1
+      && reason.indexOf('goal_not_met') === -1;
+
+    const row = el('div', 'sw-goal-row');
+    const icon = el('span', 'sw-goal-icon ' + (goalMet ? 'met' : 'pending'),
+      goalMet ? '\u2714' : '\u25F7');
+    row.appendChild(icon);
+
+    const info = el('div');
+    info.appendChild(el('div', 'sw-goal-fraction', `${done} / ${total}`));
+    info.appendChild(el('div', 'sw-goal-text',
+      goalMet ? 'goal met' : 'tasks complete'));
+    row.appendChild(info);
+    sec.appendChild(row);
+    body.appendChild(sec);
+  }
+
+  if (sponsor.draining) {
+    const banner = el('div', 'sw-drain-banner');
+    banner.appendChild(el('span', 'sw-drain-dot'));
+    banner.appendChild(el('span', null, 'DRAINING'));
+    body.appendChild(banner);
+  }
+}
+
+function _extractChildSponsors(reason, sponsorId) {
+  const composites = new Set(['all_of', 'any_of', 'priority']);
+  if (!composites.has(sponsorId) || !reason) return [];
+  const afterColon = reason.indexOf(':') !== -1 ? reason.slice(reason.indexOf(':') + 1) : reason;
+  const parts = afterColon.split(/\s*[&|]\s*/);
+  const names = [];
+  const seen = new Set();
+  for (const part of parts) {
+    const name = part.split(':')[0].replace(/_/g, ' ').trim();
+    if (name && !composites.has(name) && !seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  return names;
 }
 
 function renderBoard(state) {
@@ -1088,6 +1845,17 @@ function renderCard(task, color, agentMap) {
       hb.textContent = '⚠ no heartbeat';
     }
     meta.appendChild(hb);
+  }
+  const taskTotal = _state &&
+    _state._meta &&
+    _state._meta.token_aggregates &&
+    _state._meta.token_aggregates.by_task_total &&
+    _state._meta.token_aggregates.by_task_total[task.task_id];
+  if (taskTotal && taskTotal > 0) {
+    const pill = el('div', 'card-tokens');
+    pill.appendChild(el('span', 'card-tokens-icon', '◆'));
+    pill.appendChild(el('span', 'card-tokens-value', `${formatTokens(taskTotal)} toks`));
+    meta.appendChild(pill);
   }
   card.appendChild(meta);
   _cardElements.set(task.task_id, card);
@@ -1308,6 +2076,15 @@ function renderSponsor(meta) {
     row.appendChild(el('span', 'data-val', value));
     return row;
   };
+  const budgetLine = (key, used, cap) => {
+    const row = el('div', 'data-row');
+    row.appendChild(el('span', 'data-key', key));
+    const val = el('span', 'data-val');
+    val.style.width = '100%';
+    val.appendChild(buildSponsorBudgetBar(used, cap));
+    row.appendChild(val);
+    return row;
+  };
 
   const sponsorId = status.sponsor_id || '—';
   summary.appendChild(line('sponsor', sponsorId));
@@ -1328,7 +2105,7 @@ function renderSponsor(meta) {
     }
     if (lease.llm_tokens != null) {
       const used = (status.meters && status.meters.llm_tokens) || 0;
-      summary.appendChild(line('llm_tokens', `${used} / ${lease.llm_tokens}`));
+      summary.appendChild(budgetLine('llm_tokens', used, lease.llm_tokens));
     }
     if (lease.worker_invocations != null) {
       const used = (status.meters && status.meters.worker_invocations) || 0;
@@ -1377,14 +2154,17 @@ async function openDrawer(taskId) {
   document.getElementById('drawer-overlay').className = 'open';
   document.getElementById('drawer').className = 'open';
   try {
-    const resp = await fetch(`/api/task/${taskId}/history`);
-    renderDrawerBody(body, task, (await resp.json()).events || []);
+    const [history, tokens] = await Promise.all([
+      fetch(`/api/task/${taskId}/history`).then(r => r.json()),
+      fetch(`/api/task/${taskId}/tokens`).then(r => r.json()),
+    ]);
+    renderDrawerBody(body, task, history.events || [], tokens.records || []);
   } catch(e) {
     body.innerHTML = `<div style="color:var(--red)">HUMAN_REVIEW: ${e}</div>`;
   }
 }
 
-function renderDrawerBody(body, task, events) {
+function renderDrawerBody(body, task, events, tokenRecords) {
   body.innerHTML = '';
   body.appendChild(el('div', 'drawer-section-title', 'Timeline'));
   const tl = el('div', 'timeline');
@@ -1400,6 +2180,12 @@ function renderDrawerBody(body, task, events) {
     tl.appendChild(item);
   }
   body.appendChild(tl);
+  if (tokenRecords && tokenRecords.length > 0) {
+    const sep = el('div'); sep.style.cssText = 'border-top:1px solid var(--border);margin:14px 0 10px;';
+    body.appendChild(sep);
+    body.appendChild(el('div', 'drawer-section-title', 'Token usage'));
+    body.appendChild(renderTokenUsageSection(tokenRecords));
+  }
   if (task.output) {
     const sep = el('div'); sep.style.cssText = 'border-top:1px solid var(--border);margin:14px 0 10px;';
     body.appendChild(sep);
@@ -1416,6 +2202,35 @@ function renderDrawerBody(body, task, events) {
       n.textContent = note; body.appendChild(n);
     }
   }
+}
+
+function renderTokenUsageSection(records) {
+  const wrapper = el('div', 'drawer-tokens');
+  const total = records.reduce((sum, r) => sum + (Number(r.token_total) || 0), 0);
+  const totalDiv = el('div', 'drawer-tokens-total');
+  totalDiv.appendChild(el('span', 'drawer-tokens-total-num', formatTokens(total)));
+  totalDiv.appendChild(el('span', 'drawer-tokens-total-label', 'tokens'));
+  wrapper.appendChild(totalDiv);
+
+  const table = el('table', 'drawer-tokens-table');
+  table.innerHTML = `
+    <thead><tr><th>Step</th><th>Stage</th><th>Reasoner</th><th>Tokens</th></tr></thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+  for (const r of records) {
+    const stage = r.stage || '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(r.step_name || '—')}</td>
+      <td style="color:${statusColor(stage)}">${escapeHtml(stage || '—')}</td>
+      <td class="costs-value" style="text-align:left">${escapeHtml(r.reasoner_id || '—')}</td>
+      <td class="costs-value">${formatTokens(r.token_total)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  wrapper.appendChild(table);
+  return wrapper;
 }
 
 function closeDrawer() {
@@ -1442,6 +2257,8 @@ async function fetchState() {
       document.getElementById('last-updated').textContent = fmtTime(meta.server_time);
       renderChief(meta.chief || null);
       renderSponsor(meta);
+      updateTabVisibility(meta);
+      if (_activeTab === 'costs') renderCosts(_state);
     }
     setLiveDot(true);
   } catch(e) { console.error('State fetch failed:', e); setLiveDot(false); }
@@ -1474,6 +2291,9 @@ document.getElementById('theme-btn').onclick = () => {
   document.getElementById('theme-btn').textContent = light ? '☀︎' : '◑';
 };
 document.getElementById('refresh-btn').onclick = fetchState;
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.onclick = () => switchTab(tab.dataset.tab);
+});
 setInterval(fetchState, 4000);
 connectSSE();
 fetchState();
@@ -1516,7 +2336,7 @@ def _cli() -> None:
         parser.print_help()
         print("\nExample:")
         print(
-            "  python -m quadro.ui examples/microsoft_agent_framework/newsroom/newsroom.db"
+            "  python -m quadro.ui examples/newsroom/newsroom.db"
         )
         sys.exit(0)
 

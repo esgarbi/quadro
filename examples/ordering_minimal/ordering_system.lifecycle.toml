@@ -1,0 +1,20 @@
+name = "order"
+
+phases = [
+    ["UNASSIGNED", "placed"],
+    ["placed", "IN_PROGRESS"],
+    ["IN_PROGRESS", "accepted"],
+    ["accepted", "IN_PROGRESS"],
+    ["IN_PROGRESS", "stock_ready"],
+    ["stock_ready", "delivering"],
+    ["delivering", "delivered"],
+]
+
+branches = [
+    ["IN_PROGRESS", "cancelled"],
+    ["IN_PROGRESS", "awaiting_stock"],
+]
+
+loops = [
+    ["awaiting_stock", "accepted"],
+]

@@ -30,5 +30,6 @@ htmlcov
 temp/
 
 # Articles produced at runtime (written inside the container, not needed in image)
-examples/microsoft_agent_framework/newsroom/output/
-examples/microsoft_agent_framework/newsroom/articles/
+examples/newsroom/output/
+examples/ordering/output/
+examples/synthetic_data/output/

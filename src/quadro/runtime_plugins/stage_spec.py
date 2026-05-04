@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-_NATIVE_RUNTIME_ENTRYPOINTS = ("workflow", "graph", "supervisor")
+_NATIVE_RUNTIME_ENTRYPOINTS = ("workflow", "graph", "supervisor", "saga")
 
 
 def native_runtime_entrypoint(spec: Any) -> tuple[str, Any] | None:

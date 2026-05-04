@@ -139,14 +139,14 @@ flows into the meter via the runtime's shared `MeterBundle`, accessed as
 `runtime.meters`:
 
 - **MAF-backed workers** — pass
-  `token_reporter=runtime.meters.report_llm_tokens` to
-  `MafPipeline.llm(...)`. The adapter extracts `usage` from each MAF
-  turn (chief and worker) and reports it automatically.
+  `token_reporter=runtime.meters.report_llm_tokens` to `MafReasoner(...)`
+  and `MafChiefRuntime(...)`. The adapter extracts `usage` from each MAF
+  turn and reports it automatically.
 - **Custom workers** — call `runtime.meters.report_llm_tokens(n)`
   from your `execute_fn` closure with whatever token count your
   provider returned.
 
-See `examples/microsoft_agent_framework/llm_token_budget/` for an end-to-end demo that pairs
+See `examples/token_budget/` for an end-to-end demo that pairs
 this sponsor with `QueueDepthSponsor` against a local OpenAI-compatible
 endpoint.
 
@@ -416,5 +416,5 @@ call `propose_lease`. See [sponsor-authoring.md](sponsor-authoring.md#testing-yo
   Sponsor (protocol, context fields, error handling).
 - [docs/design/sponsor.md](../design/sponsor.md) — full design
   rationale, locked API, non-goals.
-- [examples/core/crm_sponsor/README.md](../../examples/core/crm_sponsor/README.md)
+- [examples/crm_sponsor/README.md](../../examples/crm_sponsor/README.md)
   — end-to-end example of delegating runtime lifetime to a CRM ticket.

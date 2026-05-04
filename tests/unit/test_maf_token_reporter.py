@@ -10,7 +10,7 @@ from types import SimpleNamespace as NS
 
 import pytest
 
-from quadro.integrations.maf import (
+from quadro_maf._internal import (
     _extract_token_usage,
     _find_usage_payload,
     _report_tokens,
@@ -178,7 +178,7 @@ def test_report_tokens_swallows_extraction_exceptions() -> None:
 
 def test_maf_module_imports_without_agent_framework() -> None:
     """These helpers must be usable in the zero-dep core test environment."""
-    import quadro.integrations.maf as mod
+    import quadro_maf._internal as mod
 
     assert callable(mod._extract_token_usage)
     assert callable(mod._report_tokens)

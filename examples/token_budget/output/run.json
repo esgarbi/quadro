@@ -1,0 +1,202 @@
+{
+  "meta": {
+    "budget": 9000,
+    "model": "gpt-5.4",
+    "endpoint": "https://api.openai.com/v1",
+    "total_tickets": 15,
+    "wall_time_s": 14.82,
+    "final_decision": "stop",
+    "final_reason": "all_of:llm_tokens_budget_exhausted:11541/9000",
+    "generated_at": "2026-05-02T23:56:19+00:00"
+  },
+  "summary": {
+    "classified": 15,
+    "failed": 0,
+    "tokens_used": 11541,
+    "budget": 9000,
+    "budget_utilisation_pct": 128.2
+  },
+  "sponsor_log": [
+    {
+      "at": "2026-05-02T23:56:19.384560+00:00",
+      "sponsor_id": "all_of",
+      "prior_lease_id": null,
+      "meters": {
+        "ticks": 0,
+        "wall_clock_elapsed_s": 14.809974,
+        "worker_invocations": 15,
+        "llm_tokens": 11541,
+        "board_events": 45
+      },
+      "decision": "stop",
+      "reason": "all_of:llm_tokens_budget_exhausted:11541/9000"
+    }
+  ],
+  "tickets": [
+    {
+      "task_id": "ml3dm",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "high",
+      "category": "account",
+      "suggested_reply": "Hi Marcus \u2014 sorry you\u2019re running into this. Thanks for flagging that password resets didn\u2019t resolve it; we\u2019re looking into the login issue now so we can help get your team back in.",
+      "raw_output": "{\"urgency\": \"high\", \"category\": \"account\", \"suggested_reply\": \"Hi Marcus \\u2014 sorry you\\u2019re running into this. Thanks for flagging that password resets didn\\u2019t resolve it; we\\u2019re looking into the login issue now so we can help get your team back in.\"}"
+    },
+    {
+      "task_id": "4a936",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for reaching out \u2014 I understand the unexpected 'platform uplift' charge on your March invoice is concerning. I\u2019m looking into what that line item refers to and can help clarify how it was applied to your account.",
+      "raw_output": "{\"urgency\": \"medium\", \"category\": \"billing\", \"suggested_reply\": \"Thanks for reaching out \\u2014 I understand the unexpected 'platform uplift' charge on your March invoice is concerning. I\\u2019m looking into what that line item refers to and can help clarify how it was applied to your account.\"}"
+    },
+    {
+      "task_id": "sfe6j",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the suggestion \u2014 I can see how exporting the activity log for an entire quarter in one CSV would save time compared with doing it month by month. I\u2019ve shared this as a feature request with the team and appreciate the detailed use case.",
+      "raw_output": "{\"urgency\": \"low\", \"category\": \"feature_request\", \"suggested_reply\": \"Thanks for the suggestion \\u2014 I can see how exporting the activity log for an entire quarter in one CSV would save time compared with doing it month by month. I\\u2019ve shared this as a feature request with the team and appreciate the detailed use case.\"}"
+    },
+    {
+      "task_id": "yq20x",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "critical",
+      "category": "outage",
+      "suggested_reply": "Thanks for flagging this \u2014 we understand your checkout flow is returning 500 errors and that this is impacting revenue. We\u2019re treating this as urgent and have escalated it for immediate investigation.",
+      "raw_output": "{\"urgency\": \"critical\", \"category\": \"outage\", \"suggested_reply\": \"Thanks for flagging this \\u2014 we understand your checkout flow is returning 500 errors and that this is impacting revenue. We\\u2019re treating this as urgent and have escalated it for immediate investigation.\"}"
+    },
+    {
+      "task_id": "733uh",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "low",
+      "category": "other",
+      "suggested_reply": "Thanks so much for the kind words\u2014we\u2019re glad the new dashboard has been useful for your team. We especially appreciate hearing that the p95 latency widget stood out.",
+      "raw_output": "{\"urgency\": \"low\", \"category\": \"other\", \"suggested_reply\": \"Thanks so much for the kind words\\u2014we\\u2019re glad the new dashboard has been useful for your team. We especially appreciate hearing that the p95 latency widget stood out.\"}"
+    },
+    {
+      "task_id": "avpap",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for reaching out about your upcoming Okta migration. I can help clarify how our SAML integration handles role mapping and user assignment so you can plan the setup.",
+      "raw_output": "{\"urgency\": \"low\", \"category\": \"feature_request\", \"suggested_reply\": \"Thanks for reaching out about your upcoming Okta migration. I can help clarify how our SAML integration handles role mapping and user assignment so you can plan the setup.\"}"
+    },
+    {
+      "task_id": "j3mol",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for flagging this \u2014 I\u2019m sorry about the duplicate charge. We\u2019ll review invoices INV-88123 and INV-88127 and help clarify what happened, including the next steps for resolving the extra charge.",
+      "raw_output": "{\"urgency\": \"medium\", \"category\": \"billing\", \"suggested_reply\": \"Thanks for flagging this \\u2014 I\\u2019m sorry about the duplicate charge. We\\u2019ll review invoices INV-88123 and INV-88127 and help clarify what happened, including the next steps for resolving the extra charge.\"}"
+    },
+    {
+      "task_id": "5zvvo",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "medium",
+      "category": "other",
+      "suggested_reply": "Thanks for flagging this \u2014 I\u2019m sorry you\u2019re running into 429 responses on /v1/export. We\u2019ll help review whether this is due to endpoint-specific rate limits or another account-level constraint, and any request details you can share will help us investigate.",
+      "raw_output": "{\"urgency\": \"medium\", \"category\": \"other\", \"suggested_reply\": \"Thanks for flagging this \\u2014 I\\u2019m sorry you\\u2019re running into 429 responses on /v1/export. We\\u2019ll help review whether this is due to endpoint-specific rate limits or another account-level constraint, and any request details you can share will help us investigate.\"}"
+    },
+    {
+      "task_id": "mmvtj",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "high",
+      "category": "account",
+      "suggested_reply": "Sorry you\u2019re locked out of your account and not receiving the unlock email. We can help review the lock and next steps to restore access as quickly as possible.",
+      "raw_output": "{\"urgency\": \"high\", \"category\": \"account\", \"suggested_reply\": \"Sorry you\\u2019re locked out of your account and not receiving the unlock email. We can help review the lock and next steps to restore access as quickly as possible.\"}"
+    },
+    {
+      "task_id": "u9el1",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "high",
+      "category": "other",
+      "suggested_reply": "Thanks for flagging this again, and I\u2019m sorry you\u2019ve had to follow up multiple times. I understand the full org export is failing around 60% with no error, and with your compliance deadline on Friday we\u2019ll treat this as a priority and investigate right away.",
+      "raw_output": "{\"urgency\": \"high\", \"category\": \"other\", \"suggested_reply\": \"Thanks for flagging this again, and I\\u2019m sorry you\\u2019ve had to follow up multiple times. I understand the full org export is failing around 60% with no error, and with your compliance deadline on Friday we\\u2019ll treat this as a priority and investigate right away.\"}"
+    },
+    {
+      "task_id": "cgzl2",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the feedback \u2014 we understand a dark mode option would be helpful. I\u2019ve noted this request for the team, and we appreciate you sharing how it would improve your experience.",
+      "raw_output": "{\"urgency\": \"low\", \"category\": \"feature_request\", \"suggested_reply\": \"Thanks for the feedback \\u2014 we understand a dark mode option would be helpful. I\\u2019ve noted this request for the team, and we appreciate you sharing how it would improve your experience.\"}"
+    },
+    {
+      "task_id": "3d1gq",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "medium",
+      "category": "billing",
+      "suggested_reply": "Thanks for reaching out \u2014 we can help update the billing address on your account from 42 Heddon St to 8 Marshalsea Rd. I\u2019ve noted that the tax ID should remain unchanged, and we\u2019ll review the account details with you.",
+      "raw_output": "{\"urgency\": \"medium\", \"category\": \"billing\", \"suggested_reply\": \"Thanks for reaching out \\u2014 we can help update the billing address on your account from 42 Heddon St to 8 Marshalsea Rd. I\\u2019ve noted that the tax ID should remain unchanged, and we\\u2019ll review the account details with you.\"}"
+    },
+    {
+      "task_id": "i974i",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "critical",
+      "category": "account",
+      "suggested_reply": "Thanks for flagging this \u2014 we\u2019re treating it as a potential security issue and will review the sign-in activity and audit logs on your account. We\u2019ll follow up with what we can confirm about the attempt and any associated access.",
+      "raw_output": "{\"urgency\": \"critical\", \"category\": \"account\", \"suggested_reply\": \"Thanks for flagging this \\u2014 we\\u2019re treating it as a potential security issue and will review the sign-in activity and audit logs on your account. We\\u2019ll follow up with what we can confirm about the attempt and any associated access.\"}"
+    },
+    {
+      "task_id": "pjw8w",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "low",
+      "category": "billing",
+      "suggested_reply": "Thanks for reaching out \u2014 we\u2019d be happy to help with pricing for expanding your rollout. We can share enterprise pricing details and discuss how volume discounts may apply as you scale beyond 100 seats.",
+      "raw_output": "{\"urgency\": \"low\", \"category\": \"billing\", \"suggested_reply\": \"Thanks for reaching out \\u2014 we\\u2019d be happy to help with pricing for expanding your rollout. We can share enterprise pricing details and discuss how volume discounts may apply as you scale beyond 100 seats.\"}"
+    },
+    {
+      "task_id": "p4ocw",
+      "ticket_id": null,
+      "subject": null,
+      "body": null,
+      "status": "classified",
+      "urgency": "low",
+      "category": "feature_request",
+      "suggested_reply": "Thanks for the detailed feedback on webhook retries and dead-letter handling. I\u2019ve shared this feature request with the team; configurable retry spacing and better visibility into failed events would help in cases like your failover window.",
+      "raw_output": "{\"urgency\": \"low\", \"category\": \"feature_request\", \"suggested_reply\": \"Thanks for the detailed feedback on webhook retries and dead-letter handling. I\\u2019ve shared this feature request with the team; configurable retry spacing and better visibility into failed events would help in cases like your failover window.\"}"
+    }
+  ]
+}

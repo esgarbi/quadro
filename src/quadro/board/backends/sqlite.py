@@ -375,11 +375,21 @@ class SqliteBoardBackend(BoardBackend):
             return None
         return json.loads(row["value_json"])
 
-    def list_data(self) -> dict[str, object]:
+    def list_data(self, prefix: str | None = None) -> dict[str, object]:
         with self._lock:
-            rows = self._conn.execute(
-                "SELECT key, value_json FROM data_entries"
-            ).fetchall()
+            if prefix is None:
+                rows = self._conn.execute(
+                    "SELECT key, value_json FROM data_entries ORDER BY key ASC"
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    """
+                    SELECT key, value_json FROM data_entries
+                    WHERE key LIKE ? || '%'
+                    ORDER BY key ASC
+                    """,
+                    (prefix,),
+                ).fetchall()
         return {row["key"]: json.loads(row["value_json"]) for row in rows}
 
     def delete_data(self, key: str) -> bool:

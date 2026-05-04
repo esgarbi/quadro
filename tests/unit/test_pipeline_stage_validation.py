@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from quadro.pipeline import Pipeline, StageSpec, ToolDescriptor
+from quadro.pipeline import Pipeline, StageSpec
 
 
 class _DummyBoard:
@@ -22,6 +22,15 @@ class _SchemaStageSpec(StageSpec):
 
 
 class _SchemaAwarePipeline(Pipeline):
+    """Pipeline subclass that merely widens ``StageSpec`` with an
+    ``output_schema`` field so the substrate's ``_validate_stages``
+    unsafe-schema check has something to assert against. The three
+    abstract hooks deleted in milestone J1 are not overridden here —
+    after J1, LLM-framework integration is composed via
+    ``.reasoner(...)`` and ``.with_framework_runtime(...)``, not
+    subclassing.
+    """
+
     def _make_stage_spec(self, capability: str, **kwargs: Any) -> StageSpec:
         allowed = {
             k: v
@@ -29,20 +38,6 @@ class _SchemaAwarePipeline(Pipeline):
             if k in _SchemaStageSpec.__dataclass_fields__
         }
         return _SchemaStageSpec(capability, **allowed)
-
-    def _decorate_tools(self, descriptors: list[ToolDescriptor]) -> list:
-        return descriptors
-
-    async def _run_chief_llm_turn(
-        self,
-        board_summary: str,
-        instructions: str,
-        tools: list,
-    ) -> str | None:
-        return None
-
-    def _make_auto_execute_fn(self, spec: StageSpec):  # noqa: ANN201
-        return lambda context, board_fn: "{}"  # noqa: ARG005
 
 
 class _Schema:

@@ -123,8 +123,9 @@ final = (
 )
 ```
 
-The `examples/microsoft_agent_framework/*/main_pipeline.py` files
-demonstrate this shape against the LLM-backed examples.
+The `examples/newsroom/main_pipeline.py` and
+`examples/ordering/main_pipeline.py` files demonstrate this shape against the
+LLM-backed examples.
 
 ---
 
@@ -205,7 +206,7 @@ runtime.drain_max_duration(timedelta(minutes=30))
 There was no equivalent in the `done_when` / `max_cycles` model. Existing
 callers do not need to do anything to opt in to drain — it is
 transparently available the moment you install a Sponsor that can return
-`Drain`. See `examples/core/crm_sponsor/` for a worked demonstration.
+`Drain`. See `examples/crm_sponsor/` for a worked demonstration.
 
 ---
 

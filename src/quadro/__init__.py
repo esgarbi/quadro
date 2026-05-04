@@ -1,6 +1,6 @@
 """Quadro public API."""
 
-__version__ = "0.1.0"
+__version__ = "0.8.0"
 
 from .a2a.dispatch import LocalA2ANetwork
 from .agents.chief import ChiefAgent
@@ -20,6 +20,7 @@ from .dispatch import (
     get_acknowledged,
     is_draining,
 )
+from .estimator import Estimator, ModelPricing, Pricing, Projection
 from .errors import (
     ConflictError,
     NotFoundError,
@@ -37,6 +38,7 @@ from .pipeline import (
 )
 from .runner import RunLoop
 from .runtime import QuadroRuntime
+from .saga import Saga, SagaBuilder
 from .ui import serve_board
 
 __all__ = [
@@ -46,15 +48,21 @@ __all__ = [
     "ConflictError",
     "DRAIN_FLAG_KEY",
     "DefaultTaskIdProvider",
+    "Estimator",
     "LifecycleBuilder",
     "LocalA2ANetwork",
+    "ModelPricing",
     "NotFoundError",
     "Ombudsman",
     "Pipeline",
+    "Pricing",
+    "Projection",
     "QuadroBoard",
     "QuadroError",
     "QuadroRuntime",
     "RunLoop",
+    "Saga",
+    "SagaBuilder",
     "StageSpec",
     "ToolDescriptor",
     "TransitionError",

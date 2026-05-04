@@ -114,11 +114,12 @@ class LlmTokenMeter:
 
     Wire-up patterns:
 
-    - **MAF integration** — pass
-      ``token_reporter=runtime.meters.report_llm_tokens`` to
-      :meth:`quadro.integrations.maf.MafPipeline.llm` (or the standalone
-      :func:`quadro.integrations.maf.llm_call`). Usage is extracted from
-      the MAF event stream after each turn.
+    - **LLM-framework adapter** — pass
+      ``token_reporter=runtime.meters.report_llm_tokens`` to the
+      adapter runtime and reasoner constructors (for example
+      ``quadro_maf.MafChiefRuntime(token_reporter=...)`` and
+      ``quadro_maf.MafReasoner(token_reporter=...)``). Every LLM call
+      the adapter makes extracts its usage and pushes the sum in here.
     - **Custom workers** — call ``runtime.meters.report_llm_tokens(n)``
       directly from your ``execute_fn`` closure, passing whatever token
       count your provider returns.

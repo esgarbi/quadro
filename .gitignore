@@ -1,4 +1,4 @@
-# Environment variables (secrets)
+    # Environment variables (secrets)
 .env
 .env.*
 !.env.example
@@ -40,11 +40,12 @@ wheels/
 *.db-shm
 
 # Runtime-generated example output (curated samples live in output_sample/)
-examples/microsoft_agent_framework/newsroom/output/
-examples/microsoft_agent_framework/ordering_system/output/
-examples/microsoft_agent_framework/llm_token_budget/output/
-examples/microsoft_agent_framework/llm_token_budget/triage.db
-examples/langchain/llm_token_budget/output/
+examples/newsroom/output/
+examples/ordering/output/
+examples/token_budget/output/
+
+# Generated synthetic-data outputs
+examples/synthetic_data/output/*.jsonl
 
 # OS
 .DS_Store
@@ -55,8 +56,5 @@ Thumbs.db
 *.vsix
 
 
-# Cursor IDE local state / debug logs
-.cursor/
-.cursorignore
-.cursorrules
 .vscode/settings.json
+

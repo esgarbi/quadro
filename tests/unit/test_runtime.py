@@ -31,8 +31,8 @@ def test_runtime_starts_from_backend_and_creates_board_lazily() -> None:
 def test_runtime_put_data_and_profiles_are_fluent_before_board_creation() -> None:
     lifecycle = (
         LifecycleBuilder()
-        .step("UNASSIGNED", "drafting")
-        .step("drafting", "published")
+        .phase("UNASSIGNED", "drafting")
+        .phase("drafting", "published")
         .build()
     )
     runtime = QuadroRuntime(SqliteBoardBackend(":memory:")).with_profiles(

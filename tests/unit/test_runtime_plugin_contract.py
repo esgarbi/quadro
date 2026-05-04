@@ -9,8 +9,8 @@ from quadro.board.backends.sqlite import SqliteBoardBackend
 from quadro.board.board import QuadroBoard
 from quadro.pipeline import Pipeline, StageSpec, ToolDescriptor
 from quadro.runtime_plugins.base import RuntimeContext, StageRunResult
-from quadro.runtime_plugins.maf_workflow import MafWorkflowRuntime
 from quadro.runtime_plugins.stage_spec import native_runtime_entrypoint
+from quadro_maf import MafChiefRuntime
 
 
 @dataclass
@@ -49,25 +49,6 @@ class _DummyRuntime:
         )
 
 
-class _DummyPipeline(Pipeline):
-    def _decorate_tools(self, descriptors: list[ToolDescriptor]) -> list:
-        return descriptors
-
-    async def _run_chief_llm_turn(
-        self,
-        board_summary: str,
-        instructions: str,
-        tools: list,
-    ) -> str | None:
-        return "fallback-chief"
-
-    def _make_auto_execute_fn(self, spec: StageSpec):  # noqa: ANN201
-        async def _execute(context: dict, board_fn):  # noqa: ANN001
-            return "fallback-stage"
-
-        return _execute
-
-
 def test_pipeline_runtime_delegation_updates_task_and_observability() -> None:
     board = QuadroBoard(SqliteBoardBackend(":memory:"), network=LocalA2ANetwork())
     runtime = _DummyRuntime(handled_specs=[])
@@ -75,7 +56,7 @@ def test_pipeline_runtime_delegation_updates_task_and_observability() -> None:
     telemetry_events: list[dict] = []
 
     pipeline = (
-        _DummyPipeline(board)
+        Pipeline(board)
         .with_framework_runtime(runtime)
         .runtime_observability(
             token_reporter=token_calls.append,
@@ -125,7 +106,7 @@ def test_pipeline_runtime_delegation_with_graph_entrypoint() -> None:
 
     graph_runtime = _GraphRuntime(handled_specs=[])
     pipeline = (
-        _DummyPipeline(board)
+        Pipeline(board)
         .with_framework_runtime(graph_runtime)
         .stage("classify", active_status="classifying", graph=object())
         .chief(prompt="chief prompt")
@@ -152,7 +133,7 @@ def test_pipeline_runtime_delegation_with_graph_entrypoint() -> None:
 
 def test_stage_spec_preserves_native_runtime_entrypoints() -> None:
     board = QuadroBoard(SqliteBoardBackend(":memory:"), network=LocalA2ANetwork())
-    pipeline = _DummyPipeline(board).stage(
+    pipeline = Pipeline(board).stage(
         "classify",
         workflow="workflow-ref",
         graph="graph-ref",
@@ -195,7 +176,7 @@ def test_maf_workflow_runtime_maps_output_tokens_and_telemetry() -> None:
             ),
         ]
     )
-    runtime = MafWorkflowRuntime(client_factory_getter=lambda: lambda: None)
+    runtime = MafChiefRuntime(client_factory=lambda: None)
 
     result = asyncio.run(
         runtime.run_stage(

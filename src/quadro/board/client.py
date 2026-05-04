@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from ..a2a.contracts import A2ARequest
 from ..a2a.dispatch import A2ATransport
 
@@ -147,6 +149,75 @@ class BoardClient:
     def delete_data(self, key: str) -> bool:
         """Delete a data entry. Returns True if the key existed."""
         return self.request("board.delete_data", {"key": key})["deleted"]
+
+    def list_data(self, prefix: str | None = None) -> list[dict[str, Any]]:
+        """Return data-store entries, optionally filtered by key prefix."""
+        payload: dict[str, str] = {}
+        if prefix is not None:
+            payload["prefix"] = prefix
+        return self.request("board.list_data", payload)["entries"]
+
+    def token_records(
+        self,
+        *,
+        task_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return all token records, optionally filtered to one task.
+
+        Records are read from the Board's data store under the prefix
+        ``_token_record:``. Each record is a flat dict - see phase-one
+        brief for the shape.
+
+        Without ``task_id``, returns every record on the Board (sorted
+        by timestamp). With ``task_id``, returns only records for that
+        task (sorted by timestamp).
+        """
+        prefix = f"_token_record:{task_id}:" if task_id else "_token_record:"
+        records = []
+        for entry in self.list_data(prefix=prefix):
+            value = entry.get("value")
+            if isinstance(value, dict):
+                records.append(value)
+        records.sort(key=lambda r: r.get("timestamp", ""))
+        return records
+
+    def tokens_by_stage(
+        self,
+        *,
+        task_id: str | None = None,
+    ) -> dict[str, int]:
+        """Aggregate token totals by stage capability.
+
+        Reads ``token_records`` and sums ``token_total`` per stage.
+        Optionally filters to a single task. Returns a dict mapping
+        stage name to total tokens consumed.
+        """
+        by_stage: dict[str, int] = {}
+        for record in self.token_records(task_id=task_id):
+            stage = record.get("stage")
+            total = int(record.get("token_total") or 0)
+            if stage and total > 0:
+                by_stage[stage] = by_stage.get(stage, 0) + total
+        return by_stage
+
+    def tokens_by_reasoner(
+        self,
+        *,
+        task_id: str | None = None,
+    ) -> dict[str, int]:
+        """Aggregate token totals by reasoner_id.
+
+        Reads ``token_records`` and sums ``token_total`` per reasoner.
+        Optionally filters to a single task. Returns a dict mapping
+        reasoner_id to total tokens consumed.
+        """
+        by_reasoner: dict[str, int] = {}
+        for record in self.token_records(task_id=task_id):
+            rid = record.get("reasoner_id")
+            total = int(record.get("token_total") or 0)
+            if rid and total > 0:
+                by_reasoner[rid] = by_reasoner.get(rid, 0) + total
+        return by_reasoner
 
     # ── Task archival ─────────────────────────────────────────────────────────
 

@@ -1,63 +1,99 @@
 # Quadro examples
 
-Examples are grouped by **what you need installed to run them**. Pick a folder,
-read its `README.md`, copy any `.env.example` to `.env`, and run `main.py`.
+Each example lives at `examples/<purpose>/` and demonstrates one facet of
+Quadro. The integration choice is a configuration detail; the example's
+identity is its teaching purpose.
 
-| Folder | What you need | Highlights |
-|---|---|---|
-| [`core/`](core/) | Just Quadro | Deterministic demos, no API keys, no extra deps |
-| [`microsoft_agent_framework/`](microsoft_agent_framework/) | Quadro + [`agent-framework`] + OpenAI-compatible endpoint | LLM-backed pipelines via `MafPipeline` |
-| [`langchain/`](langchain/) | Quadro + LangChain + OpenAI-compatible endpoint | LLM-backed pipelines via `LangChainPipeline` |
+## newsroom (`examples/newsroom/`)
 
-[`agent-framework`]: https://pypi.org/project/agent-framework/
+Declarative authoring at scale. Four sagas drive an end-to-end
+article-publishing pipeline through the MAF adapter (`quadro_maf`): ideation,
+research, writing, and review. Requires `pip install quadro[maf]` and an
+`OPENAI_API_KEY`.
 
-## `core/` — runs with nothing but Quadro
+## ordering (`examples/ordering/`)
 
-Pure-Python workers, no API keys, no network calls. Good first contact.
+LLM-backed order fulfillment through MAF. The example demonstrates a governed
+multi-stage pipeline with validation, inventory checks, procurement, logistics,
+and a board-held warehouse state. Requires `pip install quadro[maf]` and an
+`OPENAI_API_KEY`.
 
-| Example | What it teaches |
-|---|---|
-| [`core/newsroom_cooperation/`](core/newsroom_cooperation/) | Research / write / review pipeline, Chief policy chaining tasks |
-| [`core/ordering_system/`](core/ordering_system/) | Custom lifecycle profile, board-held warehouse inventory, `board_fn` from workers |
-| [`core/crm_sponsor/`](core/crm_sponsor/) | External authority (mocked CRM ticket) driving runtime lifetime via a Sponsor — the continuity story |
+## ordering_minimal (`examples/ordering_minimal/`)
 
-```bash
-python examples/core/newsroom_cooperation/main.py
-python examples/core/ordering_system/main.py
-python examples/core/crm_sponsor/main.py
-```
+The same compensation rollback pattern without an LLM framework. Quadro's
+deterministic chief drives a saga that accepts, reserves inventory, ships, and
+rolls back side effects on injected failure. Requires only `pip install quadro`.
 
-## `microsoft_agent_framework/` — LLM-backed via MAF
+## token_budget (`examples/token_budget/`)
 
-Needs `pip install -r examples/microsoft_agent_framework/requirements.txt` and
-an OpenAI-compatible endpoint (`OPENAI_API_KEY`, `OPENAI_BASE_URL`,
-`OPENAI_MODEL_ID`). Works against OpenAI, Ollama, vLLM, SGLang, LiteLLM, or
-any `/v1/chat/completions` server.
+The sponsor system with live LLM metering. Demonstrates
+`LlmTokenBudgetSponsor` with soft drain and hard stop paths through the
+LangChain adapter (`quadro_langchain`). Requires `pip install quadro[langchain]`
+and an `OPENAI_API_KEY`.
 
-| Example | What it teaches |
-|---|---|
-| [`microsoft_agent_framework/ordering_system/`](microsoft_agent_framework/ordering_system/) | High-throughput LLM order fulfilment, Chief under sustained load |
-| [`microsoft_agent_framework/newsroom/`](microsoft_agent_framework/newsroom/) | 9-stage pipeline with PubMed research and a revision loop; Chief sleeps between long-running LLM stages |
-| [`microsoft_agent_framework/llm_token_budget/`](microsoft_agent_framework/llm_token_budget/) | `LlmTokenBudgetSponsor` wired via MAF `token_reporter`; two runs, two termination paths (drain vs. stop) |
+## crm_sponsor (`examples/crm_sponsor/`)
 
-## `langchain/` — LLM-backed via LangChain
+The sponsor system, framework-neutral version. A mocked CRM ticket governs
+runtime lifetime through continue, drain, and stop decisions. Requires only
+`pip install quadro`.
 
-Needs `pip install -r examples/langchain/requirements.txt` and an
-OpenAI-compatible endpoint (`OPENAI_API_KEY`, `OPENAI_BASE_URL`,
-`OPENAI_MODEL_ID`). Works against OpenAI, Ollama, vLLM, SGLang, LiteLLM,
-or any `/v1/chat/completions` server — the adapter builds on
-`langchain-openai`'s `ChatOpenAI`.
+## cooperation (`examples/cooperation/`)
 
-| Example | What it teaches |
-|---|---|
-| [`langchain/llm_token_budget/`](langchain/llm_token_budget/) | `LlmTokenBudgetSponsor` wired via the LangChain adapter's `token_reporter` hook; two runs, two termination paths (drain vs. stop) |
+Minimal cooperation example using Quadro's built-in lifecycle profiles and
+pure Python workers. Requires only `pip install quadro`.
+
+## minimal (`examples/minimal/`)
+
+The substrate plug-in story. A bare-OpenAI-SDK reasoner adapter is co-located
+with a tiny saga, proving any LLM SDK can plug in through the `Reasoner`
+protocol without MAF or LangChain. Requires `pip install quadro openai` and an
+`OPENAI_API_KEY`.
+
+## anthropic_minimal (`examples/anthropic_minimal/`)
+
+The smallest example using Claude as the reasoner. Posts one task, runs a saga
+that asks Claude to summarise an article with a Pydantic-enforced output
+schema, and exits when the task reaches `summarized`. The reference
+implementation of the token-usage-in-output convention (helpers
+`_format_tokens` and `_print_token_usage` are designed to copy-paste into any
+new example). Requires `pip install quadro[anthropic]` and an
+`ANTHROPIC_API_KEY`.
+
+## estimator (`examples/estimator/`)
+
+The minimal demonstration of `Estimator.from_dry_run`. Scans a 50-task
+translation queue, samples representative tasks under a `$1.00` cap, and
+prints a token-and-dollar projection with variance reporting. Shorter and
+faster than `synthetic_data/`; use this one to learn how the Estimator API
+works. Requires `pip install quadro[anthropic]` and an `ANTHROPIC_API_KEY`.
+
+## synthetic_data (`examples/synthetic_data/`)
+
+The industry-shaped demonstration of the Estimator. Loads Wikipedia passages
+from HuggingFace and runs them through two distinct sagas — SQuAD-style
+extractive QA and Alpaca-style multi-hop reasoning chains. Surfaces per-saga
+cost asymmetry, projects against full-scale workloads with confidence
+intervals that widen when extrapolating beyond the sample, and outputs JSONL
+files in formats directly loadable by the HuggingFace `datasets` library.
+Requires `pip install quadro[anthropic]`, an `ANTHROPIC_API_KEY`, and the
+example-local extras in `examples/synthetic_data/requirements.txt`.
+
+## workflow_stage_minimal (`examples/workflow_stage_minimal/`)
+
+The native-stage path with MAF: `stage(workflow=...)` instead of
+`stage(saga=...)`. Requires `pip install quadro[maf]`.
+
+## supervisor_stage_minimal (`examples/supervisor_stage_minimal/`)
+
+The native-stage path with LangChain: `stage(supervisor=...)`. Symmetric to
+`workflow_stage_minimal/`, but for LangGraph/LangChain. Requires
+`pip install quadro[langchain]`.
 
 ## Running conventions
 
-All examples currently bootstrap `quadro` from the source tree via a
-`sys.path.insert(...)` line at the top of `main.py`. If you have done
-`pip install -e .` from the repo root, that line is a no-op — `quadro` is
-already importable.
+Examples bootstrap `quadro` from the source tree via a `sys.path.insert(...)`
+line at the top of `main.py`. If you have done `pip install -e .` from the repo
+root, that line is a no-op.
 
 Generated runtime artefacts (databases, `output/` directories) are
 `.gitignore`d. Curated reference output lives in each example's

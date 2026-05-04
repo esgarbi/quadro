@@ -170,9 +170,9 @@ def lifecycle(
     For complex pipelines with branches and loops, use LifecycleBuilder instead:
         COMPLEX = (
             LifecycleBuilder()
-            .step("UNASSIGNED", "working")
+            .phase("UNASSIGNED", "working")
             .branch("working",  "failed")
-            .step("working",    "done")
+            .phase("working",    "done")
             .build()
         )
 
@@ -230,10 +230,10 @@ class LifecycleBuilder:
     Usage:
         ARTICLE_LIFECYCLE = (
             LifecycleBuilder()
-            .step("UNASSIGNED",     "ideating")
-            .step("ideating",       "idea_ready")
+            .phase("UNASSIGNED",     "ideating")
+            .phase("ideating",       "idea_ready")
             ...
-            .step("reviewing",      "published")
+            .phase("reviewing",      "published")
             .revision("reviewing",  "idea_ready")
             .build()
         )
@@ -250,10 +250,16 @@ class LifecycleBuilder:
                 self._col_order.append(state)
                 self._col_order_set.add(state)
 
-    def step(self, from_status: str, to_status: str) -> LifecycleBuilder:
+    def phase(self, from_status: str, to_status: str) -> LifecycleBuilder:
         """
-        Main progression step. Both states are added to the column order
+        Main progression — declares a transition between two phases of a
+        task's lifecycle. Both phase names are added to the column order
         in the sequence declared, so the Board UI reflects the happy path.
+
+        The method declares an edge between two phases rather than a phase
+        itself; the phase names are introduced implicitly the first time they
+        appear in either position. This matches how the previous ``.step()``
+        method behaved — only the name has changed.
         """
         self._transitions.append((from_status, to_status))
         self._add_to_col_order(from_status, to_status)

@@ -116,6 +116,7 @@ class RunLoop:
 
         self._meters = meters if meters is not None else MeterBundle()
         self._lease_history: list[Lease] = []
+        self._board_wake_listener = self._wake_chief_on_board_event
 
     # ── Builder methods ───────────────────────────────────────────────────────
 
@@ -201,11 +202,19 @@ class RunLoop:
         self._chief.add_wake_listener(self._meters.on_chief_wake)
         if self._board is not None:
             self._board.add_event_listener(self._meters.on_board_event)
+            self._board.add_event_listener(self._board_wake_listener)
 
     def _detach_subscribers(self) -> None:
         self._chief.remove_wake_listener(self._meters.on_chief_wake)
         if self._board is not None:
             self._board.remove_event_listener(self._meters.on_board_event)
+            self._board.remove_event_listener(self._board_wake_listener)
+
+    def _wake_chief_on_board_event(self, _event: Any) -> None:
+        try:
+            self._chief.wake(trigger="board_event")
+        except Exception:  # noqa: BLE001
+            logger.warning("Board event wake listener raised; ignoring.", exc_info=True)
 
     def _set_drain_flag(self, value: bool) -> None:
         try:
@@ -460,6 +469,11 @@ class RunLoop:
                     self._cycle_callback(state, cycle)
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("RunLoop on_cycle error: %s", exc)
+            self._publish_status(
+                active_lease=active_lease,
+                draining=draining,
+                drain_deadline=drain_deadline,
+            )
 
             # ── Drain lifecycle ──────────────────────────────────────────────
             if draining:

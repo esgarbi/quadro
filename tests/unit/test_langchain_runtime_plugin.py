@@ -8,7 +8,7 @@ import pytest
 
 from quadro.pipeline import StageSpec
 from quadro.runtime_plugins.base import RuntimeContext
-from quadro.runtime_plugins.langchain import LangChainRuntime
+from quadro_langchain import LangChainChiefRuntime
 
 
 @dataclass
@@ -43,7 +43,7 @@ class _ShutdownFailureRunnable:
 
 
 def test_langchain_runtime_can_handle_graph_or_supervisor() -> None:
-    runtime = LangChainRuntime(client_factory_getter=lambda: lambda: None)
+    runtime = LangChainChiefRuntime(client_factory=lambda: None)
 
     assert runtime.can_handle(StageSpec(capability="x", graph=object()))
     assert runtime.can_handle(StageSpec(capability="x", supervisor=object()))
@@ -51,7 +51,7 @@ def test_langchain_runtime_can_handle_graph_or_supervisor() -> None:
 
 
 def test_invoke_runnable_retries_only_on_type_error() -> None:
-    runtime = LangChainRuntime(client_factory_getter=lambda: lambda: None)
+    runtime = LangChainChiefRuntime(client_factory=lambda: None)
     runnable = _TypeErrorThenSuccessRunnable(payloads=[], success_payload={"ok": True})
 
     result, index = asyncio.run(
@@ -64,7 +64,7 @@ def test_invoke_runnable_retries_only_on_type_error() -> None:
 
 
 def test_invoke_runnable_surfaces_shutdown_failure_without_retry() -> None:
-    runtime = LangChainRuntime(client_factory_getter=lambda: lambda: None)
+    runtime = LangChainChiefRuntime(client_factory=lambda: None)
     runnable = _ShutdownFailureRunnable(payloads=[])
 
     with pytest.raises(RuntimeError, match="cannot schedule new futures after shutdown"):
@@ -87,7 +87,7 @@ def test_langchain_runtime_maps_stage_result_and_telemetry() -> None:
         result={"messages": [message], "checkpoint_id": "cp-1", "resume_id": "rs-1"},
         payloads=[],
     )
-    runtime = LangChainRuntime(client_factory_getter=lambda: lambda: None)
+    runtime = LangChainChiefRuntime(client_factory=lambda: None)
 
     result = asyncio.run(
         runtime.run_stage(
@@ -125,7 +125,7 @@ def test_langchain_runtime_maps_stage_result_and_telemetry() -> None:
 
 def test_langchain_runtime_uses_safe_fallback_for_empty_task_input() -> None:
     runnable = _FakeRunnable(result={"output": {"ok": True}}, payloads=[])
-    runtime = LangChainRuntime(client_factory_getter=lambda: lambda: None)
+    runtime = LangChainChiefRuntime(client_factory=lambda: None)
 
     result = asyncio.run(
         runtime.run_stage(

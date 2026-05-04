@@ -44,13 +44,22 @@ These must hold in all new code and tests:
 ## Running the examples
 
 ```bash
-python examples/core/newsroom_cooperation/main.py
-python examples/core/ordering_system/main.py
+# Deterministic examples (no API key needed)
+python examples/cooperation/main.py
+python examples/ordering_minimal/main.py
+
+# LLM-backed examples (require OPENAI_API_KEY or ANTHROPIC_API_KEY)
+python examples/newsroom/main_pipeline.py
+python examples/ordering/main_pipeline.py
+python examples/anthropic_minimal/main.py
 ```
 
 ## Board UI
 
 ```bash
-python examples/core/newsroom_cooperation/main.py
-python -m quadro.ui newsroom.db --open
+# In one terminal, run an example:
+python examples/newsroom/main_pipeline.py
+
+# In another terminal, watch the Kanban view live:
+python -m quadro.ui examples/newsroom/newsroom.db --open
 ```

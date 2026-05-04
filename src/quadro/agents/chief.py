@@ -189,8 +189,16 @@ class ChiefAgent:
                 raw = self._policy(chief_context)
                 if asyncio.iscoroutine(raw):
                     self._write_telemetry(status="acting")
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                        pool.submit(asyncio.run, raw).result()
+                    try:
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                            pool.submit(asyncio.run, raw).result()
+                    except Exception:
+                        # If shutdown races reject the executor submission,
+                        # close the just-created coroutine so Python does not
+                        # report it as "never awaited" during teardown.
+                        if getattr(raw, "cr_frame", None) is not None:
+                            raw.close()
+                        raise
                 state = self._get_state()
                 chief_context = hydrate_chief_context(state, None)
                 policy_changed_board = _task_status_snapshot(state) != pre_policy_tasks

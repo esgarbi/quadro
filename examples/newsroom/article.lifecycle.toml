@@ -1,0 +1,16 @@
+name = "article"
+
+phases = [
+    ["UNASSIGNED", "ideating"],
+    ["ideating", "idea_ready"],
+    ["idea_ready", "researching"],
+    ["researching", "research_ready"],
+    ["research_ready", "writing"],
+    ["writing", "draft_ready"],
+    ["draft_ready", "reviewing"],
+    ["reviewing", "published"],
+]
+
+revisions = [
+    ["reviewing", "idea_ready"],
+]

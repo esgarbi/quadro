@@ -6,7 +6,7 @@
     // Attach to the newsroom container running under debugpy.
     //
     // Steps:
-    //   1. cd examples/microsoft_agent_framework/newsroom/docker
+    //   1. cd examples/newsroom/docker
     //   2. docker compose -f docker-compose.debug.yml up --build
     //   3. Wait for "[debug-entrypoint] ... WAITING for debugger to attach ..."
     //   4. Select this config in the Run panel and press F5
@@ -24,12 +24,8 @@
       },
       "pathMappings": [
         {
-          "localRoot": "${workspaceFolder}/examples/microsoft_agent_framework/newsroom",
-          "remoteRoot": "/app/examples/microsoft_agent_framework/newsroom"
-        },
-        {
-          "localRoot": "${workspaceFolder}/examples/microsoft_agent_framework",
-          "remoteRoot": "/app/examples/microsoft_agent_framework"
+          "localRoot": "${workspaceFolder}/examples/newsroom",
+          "remoteRoot": "/app/examples/newsroom"
         },
         {
           "localRoot": "${workspaceFolder}/src/quadro",
@@ -41,7 +37,7 @@
 
     // ── Newsroom: Local run (no Docker) ─────────────────────────────────
     //
-    // Runs main.py directly on the host with a single-article target.
+    // Runs main_pipeline.py directly on the host with a single-article target.
     //
     // Prerequisites:
     //   - pip install -e ".[dev]" && pip install agent-framework pydantic python-dotenv
@@ -55,9 +51,9 @@
       "name": "Launch: Newsroom Local",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/examples/microsoft_agent_framework/newsroom/main.py",
+      "program": "${workspaceFolder}/examples/newsroom/main_pipeline.py",
       "args": ["--target", "1", "--cycles", "200"],
-      "cwd": "${workspaceFolder}/examples/microsoft_agent_framework/newsroom",
+      "cwd": "${workspaceFolder}/examples/newsroom",
       "env": {
         "OPENAI_API_KEY": "ollama",
         "OPENAI_BASE_URL": "http://localhost:11434/v1",
@@ -72,7 +68,7 @@
     // Attach to the ordering system container running under debugpy.
     //
     // Steps:
-    //   1. cd examples/microsoft_agent_framework/ordering_system/docker
+    //   1. cd examples/ordering/docker
     //   2. docker compose -f docker-compose.debug.yml up --build
     //   3. Wait for "[debug-entrypoint] ... WAITING for debugger to attach ..."
     //   4. Select this config in the Run panel and press F5
@@ -90,12 +86,8 @@
       },
       "pathMappings": [
         {
-          "localRoot": "${workspaceFolder}/examples/microsoft_agent_framework/ordering_system",
-          "remoteRoot": "/app/examples/microsoft_agent_framework/ordering_system"
-        },
-        {
-          "localRoot": "${workspaceFolder}/examples/microsoft_agent_framework",
-          "remoteRoot": "/app/examples/microsoft_agent_framework"
+          "localRoot": "${workspaceFolder}/examples/ordering",
+          "remoteRoot": "/app/examples/ordering"
         },
         {
           "localRoot": "${workspaceFolder}/src/quadro",
@@ -107,7 +99,7 @@
 
     // ── Ordering System: Local run (no Docker) ──────────────────────────
     //
-    // Runs main.py directly on the host with a single-order target.
+    // Runs main_pipeline.py directly on the host with a single-order target.
     //
     // Prerequisites:
     //   - pip install -e ".[dev]" && pip install agent-framework pydantic python-dotenv
@@ -121,9 +113,9 @@
       "name": "Launch: Ordering Local",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/examples/microsoft_agent_framework/ordering_system/main.py",
+      "program": "${workspaceFolder}/examples/ordering/main_pipeline.py",
       "args": ["--target", "1", "--cycles", "200"],
-      "cwd": "${workspaceFolder}/examples/microsoft_agent_framework/ordering_system",
+      "cwd": "${workspaceFolder}/examples/ordering",
       "env": {
         "OPENAI_API_KEY": "ollama",
         "OPENAI_BASE_URL": "http://localhost:11434/v1",

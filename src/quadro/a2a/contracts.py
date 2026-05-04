@@ -49,6 +49,7 @@ ALLOWED_INTENTS = {
     "board.stream_events",
     "board.put_data",
     "board.get_data",
+    "board.list_data",
     "board.delete_data",
     "board.get_task_history",
     "board.get_agent_activity",

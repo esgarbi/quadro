@@ -1,0 +1,55 @@
+# docker-compose.debug.yml — Debug variant of the newsroom stack.
+#
+# Key differences from docker-compose.yml:
+#   - debugpy listens on port 5678, waiting for VS Code / Cursor to attach
+#   - Source code is bind-mounted so edits are reflected without rebuilding
+#   - Entrypoint uses debugpy to launch main.py
+#   - NEWSROOM_TARGET defaults to 1 for fast iteration
+#
+# Usage:
+#   docker compose -f docker-compose.debug.yml up --build
+#   Then attach the debugger from VS Code / Cursor (launch config: "Attach: Newsroom Docker")
+
+name: quadro_newsroom_debug
+
+services:
+
+  newsroom:
+    build:
+      context: ../../..
+      dockerfile: examples/newsroom/docker/Dockerfile
+    container_name: quadro_newsroom_debug
+    network_mode: host
+    environment:
+      # ── Pipeline parameters ─────────────────────────────────────────────────
+      NEWSROOM_TARGET:       ${NEWSROOM_TARGET:-1}
+      NEWSROOM_CYCLES:       ${NEWSROOM_CYCLES:-500}
+      NEWSROOM_CHOREOGRAPHY: ${NEWSROOM_CHOREOGRAPHY:-}
+
+      # ── LLM provider toggle ────────────────────────────────────────────────
+      LLM_PROVIDER:          ${LLM_PROVIDER:-ollama}
+
+      # ── Ollama-specific (only used by entrypoint when LLM_PROVIDER=ollama) ─
+      OLLAMA_MODEL:          ${OLLAMA_MODEL:-gpt-oss:20b}
+      OLLAMA_BASE_URL:       ${OLLAMA_BASE_URL:-http://localhost:11434}
+
+      # ── OpenAI-compatible client (used by Python regardless of provider) ───
+      OPENAI_API_KEY:        ${OPENAI_API_KEY:-ollama}
+      OPENAI_BASE_URL:       ${OPENAI_BASE_URL:-http://localhost:11434/v1}
+      OPENAI_MODEL_ID:       ${OPENAI_MODEL_ID:-gpt-oss:20b}
+
+      # ── Board UI ────────────────────────────────────────────────────────────
+      UI_PORT:               ${UI_PORT:-8080}
+
+      # ── debugpy config ─────────────────────────────────────────────────────
+      DEBUGPY_PORT:          ${DEBUGPY_PORT:-5678}
+      DEBUGPY_WAIT:          ${DEBUGPY_WAIT:-1}
+
+    volumes:
+      # Bind-mount source so live edits are picked up without rebuild.
+      # No named volume on output/ — articles land directly on the host filesystem.
+      - ../../../src/quadro:/app/src/quadro
+      - ..:/app/examples/newsroom
+
+    entrypoint: ["/entrypoint.debug.sh"]
+    restart: "no"

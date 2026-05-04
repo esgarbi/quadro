@@ -344,6 +344,8 @@ class QuadroBoard:
                 result = self._put_data(payload)
             elif intent == "board.get_data":
                 result = self._get_data(payload)
+            elif intent == "board.list_data":
+                result = self._list_data(payload)
             elif intent == "board.delete_data":
                 result = self._delete_data(payload)
             elif intent == "board.get_task_history":
@@ -561,6 +563,16 @@ class QuadroBoard:
         key = payload["key"]
         value = self._backend.get_data(key)
         return {"key": key, "value": value}
+
+    def _list_data(self, payload: dict) -> dict:
+        prefix = payload.get("prefix")
+        if prefix is not None and not isinstance(prefix, str):
+            raise ValidationError("prefix must be a string when provided")
+        entries = [
+            {"key": key, "value": value}
+            for key, value in self._backend.list_data(prefix=prefix).items()
+        ]
+        return {"entries": entries}
 
     def _delete_data(self, payload: dict) -> dict:
         key = payload["key"]

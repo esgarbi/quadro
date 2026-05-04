@@ -1,4 +1,4 @@
-# Quadro Specification — v0.2
+# Quadro Specification — v0.8
 
 This document is the normative specification for the Quadro coordination layer.
 The reference implementation in `src/quadro/` is the authoritative realisation of
@@ -273,6 +273,19 @@ from every state. Terminal statuses are derived mechanically as states that appe
 only as destinations — never as sources — in the declared transition set, excluding
 the auto-expanded exits.
 
+**STALE handling for custom profiles.** Custom profiles do _not_ automatically
+include `STALE → UNASSIGNED`. The built-in profiles (`review_required`, `fast`)
+declare that edge explicitly (§4.1, §4.2) because they define `IN_PROGRESS` as the
+single active status. Custom profiles may declare any number of active statuses with
+arbitrary names; the `STALE` status has no fixed meaning in those profiles.
+
+When the Ombudsman detects a stale heartbeat on a task whose active status belongs
+to a custom profile, it transitions the task directly to `HUMAN_REVIEW` (always a
+valid exit) rather than to `STALE`. This means stale custom-profile tasks require
+human attention by default — they are not automatically reassigned. If a custom
+profile needs reassignment semantics, the profile author must declare `STALE →
+<some_status>` transitions explicitly and configure the Ombudsman accordingly.
+
 ---
 
 ## 5. A2A Interface
@@ -486,6 +499,12 @@ from the task's lifecycle profile:
 
 - `review_required` → transitions to `PENDING_REVIEW`
 - `fast` → transitions to `COMPLETE`
+- Any custom profile → transitions to `COMPLETE`
+
+For custom lifecycle profiles, `worker.post_result` always targets `COMPLETE`.
+Pipelines that use custom profiles and need a different completion target (e.g. a
+named terminal status like `published` or `delivered`) should use
+`board.update_task` directly with the desired `to_status`.
 
 Emits `task_completed`. Updates agent status to `IDLE`.
 
@@ -596,7 +615,7 @@ implementation.
 
 ## 11. Versioning
 
-This document covers Quadro v0.2. Changes that add new intents, new event types,
+This document covers Quadro v0.8. Changes that add new intents, new event types,
 new required fields, or that alter invariant behaviour require a version increment and
 a corresponding entry in `CHANGELOG.md`.
 

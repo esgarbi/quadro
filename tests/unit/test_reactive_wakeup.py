@@ -3,8 +3,9 @@ from __future__ import annotations
 import threading
 import time
 
-from quadro import ChiefAgent, LocalA2ANetwork, QuadroBoard, WorkerAgent
+from quadro import ChiefAgent, LocalA2ANetwork, QuadroBoard, RunLoop, WorkerAgent
 from quadro.a2a.contracts import A2ARequest
+from quadro.board.client import BoardClient
 from quadro.board.backends.sqlite import SqliteBoardBackend
 
 
@@ -17,6 +18,19 @@ def _make_env(profile: str = "fast") -> tuple[LocalA2ANetwork, str]:
     )
     network.register_endpoint(board_url, board.handle_request)
     return network, board_url
+
+
+def _make_board_env(
+    profile: str = "fast",
+) -> tuple[LocalA2ANetwork, QuadroBoard, BoardClient]:
+    network = LocalA2ANetwork()
+    board = QuadroBoard(
+        SqliteBoardBackend(":memory:"),
+        profile_resolver={"work": profile},
+        network=network,
+        url="a2a://board",
+    )
+    return network, board, board.client()
 
 
 def _req(network: LocalA2ANetwork, url: str, intent: str, payload: dict) -> dict:
@@ -230,3 +244,63 @@ def test_worker_wake_is_fire_and_forget() -> None:
 
     task = _req(network, board_url, "board.get_task", {"task_id": task_id})["task"]
     assert task["status"] == "COMPLETE"
+
+
+# ── 8. run loop wakes chief from board events ─────────────────────────────────
+
+
+def test_runloop_board_post_event_wakes_chief() -> None:
+    _, board, bc = _make_board_env()
+    chief = ChiefAgent.builder(bc).build()
+    loop = RunLoop(board, chief)
+    triggers: list[str] = []
+    chief.add_wake_listener(triggers.append)
+
+    loop._attach_subscribers()
+    try:
+        bc.post_task("work", "posted task")
+    finally:
+        loop._detach_subscribers()
+
+    assert "board_event" in triggers
+    assert chief.cycles_run >= 1
+
+
+def test_runloop_board_update_event_wakes_chief() -> None:
+    _, board, bc = _make_board_env()
+    task = bc.post_task("work", "updated task")
+    chief = ChiefAgent.builder(bc).build()
+    loop = RunLoop(board, chief)
+    triggers: list[str] = []
+    chief.add_wake_listener(triggers.append)
+
+    loop._attach_subscribers()
+    try:
+        bc.update_task(task["task_id"], "IN_PROGRESS")
+    finally:
+        loop._detach_subscribers()
+
+    assert "board_event" in triggers
+    assert chief.cycles_run >= 1
+
+
+def test_runloop_detaches_board_wake_listener() -> None:
+    _, board, bc = _make_board_env()
+    chief = ChiefAgent.builder(bc).build()
+    loop = RunLoop(board, chief)
+    triggers: list[str] = []
+    chief.add_wake_listener(triggers.append)
+
+    loop._attach_subscribers()
+    loop._detach_subscribers()
+    bc.post_task("work", "detached task")
+    assert "board_event" not in triggers
+
+    loop._attach_subscribers()
+    try:
+        bc.post_task("work", "reattached task")
+    finally:
+        loop._detach_subscribers()
+
+    assert triggers.count("board_event") == 1
+    assert chief.cycles_run == 1

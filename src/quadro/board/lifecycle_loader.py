@@ -33,14 +33,14 @@ def _build_from_dict(data: dict) -> tuple[str, Lifecycle]:
     if "name" not in data or not isinstance(data["name"], str):
         raise ValidationError("Lifecycle TOML must have a 'name' string field")
 
-    steps = data.get("steps", [])
-    if not steps:
-        raise ValidationError("Lifecycle TOML must have a non-empty 'steps' list")
+    phases = data.get("phases", [])
+    if not phases:
+        raise ValidationError("Lifecycle TOML must have a non-empty 'phases' list")
 
     builder = LifecycleBuilder()
 
-    for frm, to in _validate_transitions("steps", steps):
-        builder.step(frm, to)
+    for frm, to in _validate_transitions("phases", phases):
+        builder.phase(frm, to)
     for frm, to in _validate_transitions("branches", data.get("branches", [])):
         builder.branch(frm, to)
     for frm, to in _validate_transitions("revisions", data.get("revisions", [])):

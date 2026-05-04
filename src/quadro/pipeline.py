@@ -1,14 +1,22 @@
 """
 Framework-agnostic pipeline infrastructure for Quadro.
 
-Provides the base classes that any agent-framework adapter can subclass
-to build a declarative, governed multi-agent pipeline:
+Provides the substrate classes every Quadro pipeline builds on:
 
   StageSpec                  Describes one pipeline stage.
   ToolDescriptor             Framework-agnostic chief tool descriptor.
   generate_tool_descriptors  Derive tool descriptors from a lifecycle graph.
   BuiltPipeline              The runnable result of ``Pipeline.build()``.
-  Pipeline                   Base builder -- subclass and override three hooks.
+  Pipeline                   Substrate builder. Compose LLM-framework
+                             integrations via ``.reasoner(...)`` and
+                             ``.with_framework_runtime(...)``; no
+                             framework-specific subclass is required.
+
+Every ``Pipeline`` instance auto-registers a ``QuadroSagaRuntime`` so
+saga reasoners have a registration target and saga-only pipelines work
+without an LLM-backed chief. LLM-framework adapters (for example
+``quadro_maf.MafChiefRuntime`` and ``quadro_langchain.LangChainChiefRuntime``)
+plug in through the same ``FrameworkRuntime`` protocol.
 
 The entire module is zero-dependency (stdlib + quadro core only).
 """
@@ -56,6 +64,7 @@ class StageSpec:
     workflow: Any | None = None
     graph: Any | None = None
     supervisor: Any | None = None
+    saga: Any | None = None
 
     def __post_init__(self) -> None:
         if self.active_status is None:
@@ -259,34 +268,53 @@ class BuiltPipeline:
 
 
 class Pipeline:
-    """Framework-agnostic pipeline builder.
+    """Substrate pipeline builder.
 
-    Subclass and override three hooks to integrate any LLM framework:
+    ``Pipeline`` assembles the Quadro components (board, worker pool,
+    chief, ombudsman) around a lifecycle graph and a set of stages. LLM
+    integration is explicit composition rather than inheritance: register
+    a reasoner on the saga runtime with :meth:`reasoner` and a
+    chief-tooling runtime with :meth:`with_framework_runtime`.
 
-    - ``_decorate_tools(descriptors)`` — wrap ``ToolDescriptor`` list into
-      framework-specific tool objects.
-    - ``_run_chief_llm_turn(board_summary, instructions, tools)`` — execute
-      one chief LLM decision turn.
-    - ``_make_auto_execute_fn(spec)`` — generate an ``execute_fn`` for
-      stages that don't provide one explicitly.
+    Every ``Pipeline`` auto-registers a ``QuadroSagaRuntime`` in
+    ``__init__``:
 
-    Usage (subclass)::
+    * Saga steps find their registered reasoner there.
+    * Saga-only pipelines (no LLM-backed chief) use the saga runtime's
+      deterministic chief mode — the same "walk the lifecycle graph and
+      dispatch eligible tasks forward" pattern the ``core`` examples
+      shipped in milestone D.
 
-        class MyPipeline(Pipeline):
-            def _decorate_tools(self, descriptors): ...
-            async def _run_chief_llm_turn(self, summary, instructions, tools): ...
-            def _make_auto_execute_fn(self, spec): ...
+    Usage with an LLM-framework adapter (see ``quadro_maf`` /
+    ``quadro_langchain`` docs for the framework client setup)::
+
+        from quadro import Pipeline
+        from quadro_maf import MafReasoner, MafChiefRuntime
 
         pipeline = (
-            MyPipeline(board)
+            Pipeline(board)
+            .reasoner(MafReasoner(client_factory=client_factory))
+            .with_framework_runtime(
+                MafChiefRuntime(client_factory=client_factory)
+            )
             .workers(4).capacity(8).wakes("a2a://chief")
             .stage("validation", active_status="validating", ...)
             .chief(goal_key="my_goal")
             .build()
         )
+
+    Usage without any LLM framework (saga-only deterministic chief)::
+
+        pipeline = (
+            Pipeline(board)
+            .stage("compose", saga=my_saga, active_status="composing")
+            .build()
+        )
     """
 
     def __init__(self, board: Any) -> None:
+        from .runtime_plugins.saga import QuadroSagaRuntime
+
         self._board = board
         self._bc = board.client()
         self._workers_per_cap: int = 1
@@ -300,6 +328,15 @@ class Pipeline:
         self._framework_runtimes: list[FrameworkRuntime] = []
         self._runtime_token_reporter: Callable[[int], None] | None = None
         self._runtime_telemetry_sink: Callable[[dict[str, Any]], None] | None = None
+
+        # Auto-register the saga runtime so .reasoner(...) always has a
+        # target and saga-only pipelines can drive their deterministic
+        # chief without any additional wiring. Kept first in the
+        # registration list so that ``_primary_runtime`` can identify
+        # it by object identity and fall through to LLM-backed runtimes
+        # registered afterwards.
+        self._saga_runtime = QuadroSagaRuntime()
+        self._framework_runtimes.append(self._saga_runtime)
 
     def workers(self, n: int) -> Pipeline:
         """Set number of worker agents per capability."""
@@ -374,6 +411,23 @@ class Pipeline:
         self._framework_runtimes.append(runtime)
         return self
 
+    def reasoner(self, reasoner: Any) -> Pipeline:
+        """Register a reasoner on this pipeline's saga runtime.
+
+        A ``QuadroSagaRuntime`` is auto-registered in :meth:`__init__`;
+        this method adds a reasoner to it so saga ``reason`` steps have
+        something to dispatch through. Multiple reasoners can be
+        registered (the first becomes the fallback for steps without
+        ``via=``; subsequent reasoners are reachable via
+        ``.reason(via="<reasoner_id>")``).
+
+        The reasoner must implement the structural protocol declared in
+        ``quadro.saga.reasoner.Reasoner`` — a ``reasoner_id`` class
+        attribute and an async ``reason()`` method.
+        """
+        self._saga_runtime.register_reasoner(reasoner)
+        return self
+
     def runtime_observability(
         self,
         *,
@@ -384,41 +438,6 @@ class Pipeline:
         self._runtime_token_reporter = token_reporter
         self._runtime_telemetry_sink = telemetry_sink
         return self
-
-    # ── Abstract hooks ────────────────────────────────────────────────────────
-
-    def _decorate_tools(self, descriptors: list[ToolDescriptor]) -> list:
-        """Convert framework-agnostic ToolDescriptors into framework-specific tools.
-
-        Must be overridden by subclasses.
-        """
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement _decorate_tools()"
-        )
-
-    async def _run_chief_llm_turn(
-        self,
-        board_summary: str,
-        instructions: str,
-        tools: list,
-    ) -> str | None:
-        """Execute one chief LLM decision turn.
-
-        Must be overridden by subclasses.
-        """
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement _run_chief_llm_turn()"
-        )
-
-    def _make_auto_execute_fn(self, spec: StageSpec) -> Callable:
-        """Generate an execute_fn for a stage with no explicit one.
-
-        Must be overridden by subclasses that support auto-generated workers.
-        """
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement _make_auto_execute_fn() "
-            f"to auto-generate workers for stage {spec.capability!r}"
-        )
 
     def _validate_stages(self) -> None:
         """Validate stage configuration before wiring worker/chief agents."""
@@ -442,10 +461,20 @@ class Pipeline:
         return None
 
     def _primary_runtime(self) -> "FrameworkRuntime | None":
-        """Return the first registered runtime plugin, if any."""
-        if not self._framework_runtimes:
-            return None
-        return self._framework_runtimes[0]
+        """Return the first non-saga registered framework runtime, if any.
+
+        The saga runtime is auto-registered for every pipeline (so
+        reasoners have a registration target), but it is not a primary
+        runtime for chief tooling — its ``run_chief_turn`` is the
+        deterministic chief fallback, used only when no LLM-driven
+        runtime is registered. When no LLM-driven runtime is present,
+        this falls through to the saga runtime so saga-only pipelines
+        still get a chief.
+        """
+        for runtime in self._framework_runtimes:
+            if runtime is not self._saga_runtime:
+                return runtime
+        return self._saga_runtime
 
     def _make_runtime_execute_fn(
         self,
@@ -477,7 +506,20 @@ class Pipeline:
                 for event in result.telemetry:
                     emit_runtime_event(self._runtime_telemetry_sink, event)
 
-            target = result.status or spec.success_status or task.get("status", "COMPLETE")
+            # Only transition the task here if an explicit target was
+            # requested — either by the runtime (``result.status``) or by
+            # the stage declaration (``spec.success_status``). When both
+            # are absent (the saga pattern, where the saga's last step
+            # performs its own ``board.update_task`` with the right
+            # destination status), the task has already been moved off
+            # the ``active_status`` and the lifecycle will correctly
+            # reject a self-transition back. In that case trust the
+            # runtime's in-step persistence and skip the post-stage
+            # update entirely.
+            target = result.status or spec.success_status
+            if target is None:
+                return result.output
+
             payload = {
                 "task_id": task["task_id"],
                 "to_status": target,
@@ -520,7 +562,16 @@ class Pipeline:
             elif runtime is not None:
                 fn = self._make_runtime_execute_fn(spec, runtime)
             else:
-                fn = self._make_auto_execute_fn(spec)
+                raise ValueError(
+                    f"Pipeline stage {spec.capability!r} has no execute_fn "
+                    f"and no registered FrameworkRuntime claims it. Either "
+                    f"pass ``execute_fn=...`` to .stage(), register a "
+                    f"runtime that handles one of the native entrypoints "
+                    f"(workflow=, graph=, supervisor=, saga=) via "
+                    f".with_framework_runtime(...), or use a helper such "
+                    f"as ``quadro_maf.make_auto_execute_fn`` to build "
+                    f"the execute_fn explicitly."
+                )
             pool_builder = pool_builder.add(
                 spec.capability,
                 fn,
@@ -552,6 +603,32 @@ class Pipeline:
         first_active = self._stages[0].active_status if self._stages else None
         first_cap = self._stages[0].capability if self._stages else None
 
+        # ── Register deterministic-chief context on opt-in runtimes ───────────
+        # Any framework runtime that declares ``register_chief_context``
+        # (today only ``QuadroSagaRuntime``) gets the lifecycle, stage
+        # map, network, worker registry, and a board-fn shim handed to
+        # it once at build time. The saga runtime uses these to
+        # dispatch tasks forward deterministically in ``run_chief_turn``
+        # when no LLM-backed chief is available — making a saga-only
+        # pipeline (base ``Pipeline`` + ``QuadroSagaRuntime``) driveable
+        # without an LLM. LLM-backed pipelines (MAF, LangChain) register
+        # their own primary runtime; ``_primary_runtime()`` returns it
+        # first and the saga runtime's deterministic mode is not
+        # reached. The ``hasattr`` check keeps this opt-in per runtime.
+        def _chief_context_board_fn(intent: str, p: dict) -> dict:
+            return bc.request(intent, p)
+
+        for runtime in self._framework_runtimes:
+            register_ctx = getattr(runtime, "register_chief_context", None)
+            if callable(register_ctx):
+                register_ctx(
+                    lifecycle=lifecycle,
+                    stage_map=stage_map,
+                    network=network,
+                    worker_registry=pool.registry,
+                    board_fn=_chief_context_board_fn,
+                )
+
         async def _chief_policy(chief_context: dict) -> None:
             def board_fn(intent: str, p: dict) -> dict:
                 return bc.request(intent, p)
@@ -566,6 +643,14 @@ class Pipeline:
                     first_cap,
                 )
 
+            # ``_primary_runtime`` always returns a runtime — either an
+            # LLM-backed one (MAF, LangChain, custom) registered
+            # afterward, or the auto-registered saga runtime as the
+            # deterministic-chief fallback. So tool decoration and
+            # chief-turn execution always have a concrete target.
+            runtime = self._primary_runtime()
+            assert runtime is not None  # invariant: saga runtime is always registered
+
             if lifecycle is not None:
                 descriptors = generate_tool_descriptors(
                     lifecycle,
@@ -574,11 +659,7 @@ class Pipeline:
                     network=network,
                     worker_registry=pool.registry,
                 )
-                runtime = self._primary_runtime()
-                if runtime is not None:
-                    tools = runtime.decorate_tools(descriptors)
-                else:
-                    tools = self._decorate_tools(descriptors)
+                tools = runtime.decorate_tools(descriptors)
             else:
                 tools = []
 
@@ -596,20 +677,12 @@ class Pipeline:
             )
 
             try:
-                runtime = self._primary_runtime()
-                if runtime is not None:
-                    output = await runtime.run_chief_turn(
-                        board_summary,
-                        instructions,
-                        tools,
-                        chief_name_prefix=self._chief_name_prefix,
-                    )
-                else:
-                    output = await self._run_chief_llm_turn(
-                        board_summary,
-                        instructions,
-                        tools,
-                    )
+                output = await runtime.run_chief_turn(
+                    board_summary,
+                    instructions,
+                    tools,
+                    chief_name_prefix=self._chief_name_prefix,
+                )
                 if output:
                     logger.info("Chief: %s", output[:200])
                 else:

@@ -1,0 +1,64 @@
+name: quadro_newsroom
+
+services:
+
+  # ── Ollama — LLM server (uncomment to run Ollama inside compose) ───────────
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: quadro_ollama
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ollama_models:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 12
+  #     start_period: 10s
+
+  # ── Newsroom — pipeline + board UI ─────────────────────────────────────────
+  newsroom:
+    build:
+      context: ../../..                 # repo root — needed for src/quadro and examples/newsroom
+      dockerfile: examples/newsroom/docker/Dockerfile
+    container_name: quadro_newsroom
+    # network_mode: host shares the host network stack, so localhost inside the
+    # container reaches the host directly (e.g. Ollama on localhost:11434).
+    network_mode: host
+    #depends_on:
+      # ollama:
+      #   condition: service_healthy
+    environment:
+      # ── Pipeline parameters ─────────────────────────────────────────────────
+      NEWSROOM_TARGET:       ${NEWSROOM_TARGET:-5}
+      NEWSROOM_CYCLES:       ${NEWSROOM_CYCLES:-500}
+      NEWSROOM_CHOREOGRAPHY: ${NEWSROOM_CHOREOGRAPHY:-}
+
+      # ── LLM provider toggle ────────────────────────────────────────────────
+      # "ollama" — entrypoint waits for Ollama health + pulls model
+      # "openai" — entrypoint skips Ollama, validates OPENAI_API_KEY
+      LLM_PROVIDER:          ${LLM_PROVIDER:-ollama}
+
+      # ── Ollama-specific (only used by entrypoint when LLM_PROVIDER=ollama) ─
+      OLLAMA_MODEL:          ${OLLAMA_MODEL:-gpt-oss:20b}
+      OLLAMA_BASE_URL:       ${OLLAMA_BASE_URL:-http://localhost:11434}
+
+      # ── OpenAI-compatible client (used by Python regardless of provider) ───
+      # localhost works because network_mode: host shares the host network.
+      # For OpenAI mode, override via .env: OPENAI_BASE_URL=https://api.openai.com/v1
+      OPENAI_API_KEY:        ${OPENAI_API_KEY:-ollama}
+      OPENAI_BASE_URL:       ${OPENAI_BASE_URL:-http://localhost:11434/v1}
+      OPENAI_MODEL_ID:       ${OPENAI_MODEL_ID:-gpt-oss:20b}
+
+      # ── Board UI ────────────────────────────────────────────────────────────
+      UI_PORT:               ${UI_PORT:-8080}
+
+    # network_mode: host means ports are exposed directly; "ports:" is not needed.
+    volumes:
+      # Bind-mount output so published articles are visible on the host.
+      - ../../../src/quadro:/app/src/quadro
+      - ..:/app/examples/newsroom
+    
+    restart: "no"                             # pipeline runs once; don't auto-restart

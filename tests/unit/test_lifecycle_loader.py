@@ -13,7 +13,7 @@ from quadro.board.state_machine import LifecycleBuilder
 def test_load_lifecycle_from_string() -> None:
     toml = """
 name = "simple"
-steps = [
+phases = [
     ["UNASSIGNED", "working"],
     ["working", "done"],
 ]
@@ -28,7 +28,7 @@ steps = [
 def test_load_lifecycle_all_transition_types() -> None:
     toml = """
 name = "full"
-steps = [
+phases = [
     ["UNASSIGNED", "validating"],
     ["validating", "validated"],
     ["validated", "shipping"],
@@ -54,14 +54,14 @@ loops = [
 def test_load_lifecycle_produces_same_result_as_builder() -> None:
     builder_lc = (
         LifecycleBuilder()
-        .step("UNASSIGNED", "ideating")
-        .step("ideating", "idea_ready")
-        .step("idea_ready", "researching")
-        .step("researching", "research_ready")
-        .step("research_ready", "writing")
-        .step("writing", "draft_ready")
-        .step("draft_ready", "reviewing")
-        .step("reviewing", "published")
+        .phase("UNASSIGNED", "ideating")
+        .phase("ideating", "idea_ready")
+        .phase("idea_ready", "researching")
+        .phase("researching", "research_ready")
+        .phase("research_ready", "writing")
+        .phase("writing", "draft_ready")
+        .phase("draft_ready", "reviewing")
+        .phase("reviewing", "published")
         .revision("reviewing", "idea_ready")
         .build()
     )
@@ -69,7 +69,6 @@ def test_load_lifecycle_produces_same_result_as_builder() -> None:
     toml_path = (
         Path(__file__).resolve().parents[2]
         / "examples"
-        / "microsoft_agent_framework"
         / "newsroom"
         / "article.lifecycle.toml"
     )
@@ -81,24 +80,24 @@ def test_load_lifecycle_produces_same_result_as_builder() -> None:
 
 def test_load_lifecycle_missing_name_raises() -> None:
     toml = """
-steps = [["UNASSIGNED", "working"]]
+phases = [["UNASSIGNED", "working"]]
 """
     with pytest.raises(ValidationError, match="name"):
         load_lifecycle_string(toml)
 
 
-def test_load_lifecycle_missing_steps_raises() -> None:
+def test_load_lifecycle_missing_phases_raises() -> None:
     toml = """
 name = "empty"
 """
-    with pytest.raises(ValidationError, match="steps"):
+    with pytest.raises(ValidationError, match="phases"):
         load_lifecycle_string(toml)
 
 
 def test_load_lifecycle_from_file() -> None:
     content = b"""
 name = "from_file"
-steps = [
+phases = [
     ["UNASSIGNED", "active"],
     ["active", "complete"],
 ]

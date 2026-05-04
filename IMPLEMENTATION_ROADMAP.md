@@ -1,331 +1,211 @@
-# Quadro Implementation Roadmap (v0.1)
+# Quadro Implementation Roadmap
 
-## What Quadro is
+This roadmap describes the current reference implementation. It is not a public
+API contract; it records the architecture that has shipped and the remaining
+areas that are intentionally deferred.
 
-Quadro is a **pattern language for enterprise multi-agent coordination**, not a
-generic agent framework. The code in this repository is a reference implementation
-that proves the patterns are coherent and implementable. Read `README.md` before
-continuing here.
+## Current Architecture
 
-This roadmap tracks the reference implementation only. The patterns themselves are
-described in `README.md` and specified in `QUADRO_SPEC.md`.
+Quadro is a substrate for governed multi-agent coordination. The core package
+owns the Board, lifecycle validation, A2A dispatch, worker/chief coordination,
+Sponsor/Lease runtime lifetime, the zero-dependency Board UI, the saga DSL,
+and the cost-projection Estimator. It does not own the user's LLM stack.
 
----
+LLM-framework adapters live outside the substrate in sibling packages:
 
-## Milestone Overview
+- `quadro_maf` for Microsoft Agent Framework.
+- `quadro_langchain` for LangChain and LangGraph.
+- `quadro_anthropic` for the Anthropic SDK (`AnthropicReasoner`). Reasoner-only
+  — Anthropic ships an SDK rather than a full agent framework, so there is no
+  `AnthropicChiefRuntime`. Install via `pip install "quadro[anthropic]"`.
 
-| Milestone | Focus | Status |
+Those adapters import `quadro`; `quadro` does not import them. The substrate can
+run deterministic saga-only pipelines without any LLM framework installed, and
+adapter-backed pipelines can register framework runtimes and reasoners through
+the existing plugin seams.
+
+## Shipped Foundation
+
+| Area | Status | Notes |
 |---|---|---|
-| M1 | Board core + lifecycle validator | ✅ Complete |
-| M2 | Chief event loop + decision application | ✅ Complete |
-| M3 | Worker registration + dispatch | ✅ Complete |
-| Track A | Ordering system example + three architectural gaps | ✅ Complete |
-| M4.0 | Telemetry query intents | ✅ Complete |
-| M4.1 | Ombudsman | ✅ Complete |
-| M4.2 | Idempotency deduplication | ✅ Complete |
-| M4.3 | Revision path integration test | ✅ Complete |
-| M5 | Board UI + observability | ✅ Complete |
-| M6 | Sponsor / Lease — runtime lifetime model | ✅ Complete |
-
----
-
-## M1 — Board Core ✅
-
-### What was built
-
-- `board/records.py` — `TaskRecord`, `AgentRecord`, `EventRecord` dataclasses with
-  `TaskStatus` and `AgentStatus` as `StrEnum`
-- `board/state_machine.py` — lifecycle profile validator (`review_required`, `fast`)
-  with `_expand_with_global` for `FAILED`/`ON_HOLD` transitions
-- `board/board.py` — `QuadroBoard` with all mutating and read intents, `_append_event`
-  guarded by frozen taxonomy
-- `board/backends/base.py` — abstract `BoardBackend`
-- `board/backends/sqlite.py` — in-memory and file-backed SQLite backend with inline
-  row parsers (no N+1)
-
-### Locked invariants
-
-- Valid transition → persists state → emits exactly one immutable event
-- Invalid transition → persists nothing → emits no event
-- Every event has monotonically increasing sequence id, timestamp, transition metadata
-- `task_heartbeat` stored in event log but classified as `OPERATIONAL_EVENT_TYPES`,
-  not `CHIEF_WAKEUP_EVENT_TYPES`
-
----
-
-## M2 — Chief Loop ✅
-
-### What was built
-
-- `agents/chief.py` — `ChiefAgent` with serialized `nudge()` loop, heartbeat filtering,
-  AgentCard-based worker discovery from board registry, and `policy` callback seam
-- `agents/hydration.py` — `hydrate_chief_context` and `hydrate_worker_context` with
-  deterministic `snapshot_hash`
-- `a2a/events.py` — `EventSubscriber` with cursor-based polling
-
-### Locked invariants
-
-- Chief wakes only on `CHIEF_WAKEUP_EVENT_TYPES` (heartbeats filtered before policy)
-- Concurrent calls to `nudge()` serialize via `threading.Lock`; `max_concurrent_loops == 1`
-- Worker `a2a_url` read from board's `AgentRecord` at dispatch time
-- `PENDING_REVIEW → IN_PROGRESS` assigns reviewer as `assigned_to` before dispatch
-
----
-
-## M3 — Worker Dispatch and Execution Path ✅
-
-### What was built
-
-- `agents/worker.py` — `WorkerAgent` with AgentCard registration, two-argument
-  `execute_fn(ctx, board_fn)` signature, heartbeat posting, reviewer mode
-- `a2a/dispatch.py` — `LocalA2ANetwork` in-process transport
-- `a2a/contracts.py` — frozen intent whitelist, event taxonomy sets, typed envelopes
-
-### Locked invariants
-
-- Workers register via `board.register_agent` with required AgentCard fields
-- Workers read task context from board at invocation time (hydration)
-- `execute_fn` receives `(context, board_fn)` — operational workers call board intents
-  directly via `board_fn`; simple workers ignore the second argument
-- Result posting transitions task to the correct next state by profile
-
----
-
-## Track A — Ordering System Example ✅
-
-### What was built
-
-Three architectural gaps resolved before the ordering example was built:
-
-**Gap 1 — Custom lifecycle profiles**
-- `build_custom_profile()` in `state_machine.py` — string-based transition sets
-- `validate_transition` accepts optional `custom_profiles` dict
-- `QuadroBoard.__init__` accepts `custom_profiles` parameter
-- SQLite backend handles status values not in `TaskStatus` enum
-
-**Gap 2 — Board data store**
-- `board.put_data` / `board.get_data` intents — arbitrary key-value storage
-- `data_entries` table in SQLite backend
-- Data entries emit no events
-- `board.get_full_state` includes data under `"data"` key
-
-**Gap 3 — Operational worker context**
-- `execute_fn(ctx, board_fn)` signature — workers can call board intents during execution
-- Backward-compatible: simple workers accept `(ctx, _)` and ignore the second argument
-- Worker checks if task was already transitioned by `execute_fn` before calling
-  `worker.post_result`
-
-**Ordering system example** (`examples/core/ordering_system/main.py`)
-- Single file, ~260 lines
-- Custom order lifecycle profile (`placed → accepted → awaiting_stock → stock_ready →
-  delivering → delivered`)
-- Warehouse inventory as board data (not tasks)
-- Stock handler uses `board_fn` to read inventory, route conditionally, replenish
-  from reserve
-
-### Tests added in Track A
-
-- `tests/unit/test_state_machine.py` — `test_custom_profile_validates_correctly`
-- `tests/unit/test_board_data_store.py` — 5 tests
-- `tests/integration/test_worker_board_access.py` — 2 tests
-- `tests/integration/test_revision_cycle.py` — full revision cycle with reviewer
-  rejection and re-assignment
-
----
-
-## M4.0 — Telemetry Query Intents ✅
-
-The audit trail is already in the `events` table from M1. This milestone adds two
-read intents to query it by task or by agent. No schema changes. No new events.
-Foundation for the BoardUI in M5 and for execution reports.
-
-### What to build
-
-**`board/backends/base.py`** — two new abstract methods:
-
-```python
-@abstractmethod
-def list_events_for_task(self, task_id: str) -> list[EventRecord]: ...
-
-@abstractmethod
-def list_events_for_agent(self, agent_id: str) -> list[EventRecord]: ...
-```
-
-**`board/backends/sqlite.py`** — implement both using `SELECT ... WHERE ... ORDER BY
-sequence_id ASC` against the existing `events` table. Parse rows exactly as
-`list_events_since` does.
-
-**`a2a/contracts.py`** — add to `ALLOWED_INTENTS`:
-
-```python
-"board.get_task_history",
-"board.get_agent_activity",
-```
-
-**`board/board.py`** — routing and two private methods:
-
-```python
-def _get_task_history(self, payload: dict) -> dict:
-    # Returns {"task_id": str, "events": list[dict]}
-
-def _get_agent_activity(self, payload: dict) -> dict:
-    # Returns {"agent_id": str, "events": list[dict]}
-```
-
-### New test file: `tests/unit/test_telemetry_queries.py`
-
-1. `test_get_task_history_returns_only_that_tasks_events` — two tasks, verify filtering
-2. `test_get_task_history_includes_heartbeats` — heartbeat events appear in history
-3. `test_get_agent_activity_returns_only_that_agents_events` — two agents, verify
-   filtering
-4. `test_get_task_history_empty_for_unknown_task` — unknown task_id returns empty list,
-   not an error
-
-### Acceptance criteria
-
-- Both intents return events in `sequence_id` ascending order
-- No cross-task or cross-agent contamination in results
-- Unknown IDs return `{"events": []}`, not an error response
-- No new tables, no schema changes, no new events emitted
-- All 28 existing tests continue to pass
-
----
-
-## M4.1 — Ombudsman ✅
-
-### What was built
-
-- `ombudsman.py` — `Ombudsman` with configurable `heartbeat_timeout_seconds`.
-  Scans `IN_PROGRESS` tasks and transitions stale ones to `STALE` via normal
-  board update path.
-- `working_statuses` parameter — extends Ombudsman to scan custom-profile statuses
-  (e.g. "writing", "researching") and transition stale tasks to `FAILED`.
-- `tests/unit/test_ombudsman_custom_statuses.py` — 2 tests covering both paths.
-- `tests/integration/test_ombudsman.py` — 4 integration tests.
-
----
-
-## M4.2 — Idempotency Deduplication ✅
-
-### What was built
-
-- `board/idempotency.py` — `IdempotencyStore` with SQLite-backed `check()` and
-  `store()`. Uses `_stable_hash(payload)` as fingerprint.
-- `ConflictError` in `errors.py` — raised on key collision with different payload.
-- `QuadroBoard` accepts optional `idempotency_store` parameter. Mutating intents
-  with `idempotency_key` check the store before executing and cache the result after.
-- `idempotency_keys` table created in `SqliteBoardBackend.init()`.
-- `tests/unit/test_idempotency.py` — 4 tests covering cached return, conflict
-  detection, no-key passthrough, and backward compatibility without a store.
-
----
-
-## M4.3 — Revision Path Integration Test ✅
-
-`tests/integration/test_revision_path.py` walks a `review_required` task through
-the full revision cycle verifying the `assigned_to` audit trail at each phase:
-
-```
-UNASSIGNED → IN_PROGRESS (writer)
-→ PENDING_REVIEW → IN_PROGRESS (reviewer rejects → REVISION_NEEDED)
-→ IN_PROGRESS (writer again) → PENDING_REVIEW
-→ IN_PROGRESS (reviewer approves) → APPROVED → COMPLETE
-```
-
----
-
-## M5 — Board UI and Observability ✅
-
-### What was built
-
-- `ui.py` — zero-dependency board UI server (stdlib only, no npm, no React).
-  Serves a live Kanban view at `http://localhost:8080`.
-- Two usage modes: programmatic (`serve_board(board_client)`) and CLI
-  (`python -m quadro.ui path/to/board.db`).
-- Live SSE event feed — board updates without polling the page.
-- Chief telemetry panel — shows status (thinking/acting/sleeping), cycle count,
-  last cycle duration, and a sparkline of recent durations.
-- Per-task drawer — click any card to see the full event timeline and output.
-- Agent status panel — IDLE/BUSY state with current task ID.
-- Board data section — displays non-internal key-value entries.
-- Dark/light theme toggle.
-- Column order resolved from: explicit arg > `_col_order` board data key >
-  event history > current task statuses.
-
----
-
-## M6 — Sponsor / Lease ✅
-
-### What was built
-
-- `quadro.sponsor` module — Sponsor protocol, Lease value type, Continue /
-  Drain / Stop decision union, SponsorContext, MeterReadings.
-- Built-in leaf sponsors: GoalSponsor, DeadlineSponsor, TickBudgetSponsor,
-  WorkerBudgetSponsor, LlmTokenBudgetSponsor, BoardEventBudgetSponsor,
-  CallableSponsor, QueueDepthSponsor.
-- External sponsors: HttpSponsor, CallbackSponsor.
-- Composers: AllOf, AnyOf, Priority. Mixed-decision truth tables in
-  `docs/design/sponsor.md`.
-- Drain semantics first-class: `Drain(deadline, reason)` with
-  configurable runtime fallback (`drain_max_duration`, default 5 min).
-- Async RunLoop driving an `asyncio` event loop internally; sync external
-  API preserved.
-- Telemetry: `_sponsor_log` (bounded recent decisions) and
-  `_sponsor_status` (active lease + drain flag) persisted to the board
-  and surfaced in the UI sidebar.
-- New example `examples/core/crm_sponsor/` — mocked CRM ticket drives a
-  runtime's lifetime end-to-end.
-
-### Locked invariants
-
-- `done_when` and `max_cycles` are fully removed; Sponsor is the single
-  seam for runtime lifetime decisions.
-- Sponsors are consulted at startup, on lease axis exhaustion, and once
-  more on drain completion. Not on every poll tick.
-- Sponsor exceptions never crash the RunLoop; default is fail-closed
-  (`Stop`), opt-in fail-open per Sponsor.
-- Drain refuses new task assignment but lets in-flight work reach a
-  terminal state.
-
----
-
-## Cross-Cutting Constraints
-
-### Architecture invariants
-
-1. Board is the single source of truth
-2. A2A-only boundaries — no direct method calls between board/chief/workers
-3. Single transition, single event — data store operations emit no events
-4. Deterministic hydration — same snapshot → same hash
-5. Chief serialization — one loop at a time
-6. Idempotent writes — `idempotency_key` accepted on all mutating task intents
-
-### Scope guardrails
-
-Do not introduce:
-- Generic trigger registry or event routing table
-- Wildcard event subscriptions
-- Non-A2A shortcut paths between components
-- Framework-level orchestration replacement
-
-**Now open for contribution** (see `TODO.md`):
-- PostgreSQL, MySQL, Redis, and DynamoDB backends
-- Idempotency deduplication (M4.2)
-
-### Test conventions
-
-- All integration tests use `LocalA2ANetwork` — no HTTP, no external processes
-- Tests interact with the board only through `network.request()` + typed envelopes
-- No test calls production code's private methods (prefixed `_`)
-- New unit tests in `tests/unit/`, new integration tests in `tests/integration/`
-
----
-
-## Definition of Done for v0.1
-
-- All milestone acceptance criteria pass (M1 through M4.3)
-- All six architecture invariants verifiable through tests
-- A2A-only transport policy has no bypasses
-- Event taxonomy and lifecycle profiles unchanged from frozen spec
-- `README.md`, `QUADRO_SPEC.md`, and this roadmap consistent with each other
-- Both example scripts run end-to-end without modification
+| Board core | Complete | Task, agent, event, lifecycle, data-store, and idempotency primitives. |
+| A2A dispatch | Complete | Board, chief, and workers communicate through typed A2A envelopes. |
+| Chief and workers | Complete | Reactive wakeup, serialized chief cycles, worker registration, and stateless task execution. |
+| Sponsor / Lease | Complete | Sponsors are the runtime lifetime model; drain and stop are first-class decisions. |
+| Board UI | Complete | Zero-dependency local UI with live event feed, task drawer, chief telemetry, Sponsor panel, and Costs tab. |
+| Runtime plugins | Complete | `FrameworkRuntime` protocol and normalized runtime telemetry envelope. |
+| Adapter packages | Complete | MAF, LangChain, and Anthropic adapters live outside the substrate. |
+| Reporting | Complete | Phase 1 persists per-step token records to the Board under `_token_record:{task_id}:{step_name}`. Phase 2 renders three views in the Board UI: per-card token pill, drawer "Token usage" section, dedicated Costs tab with per-stage stacked bar, optional per-reasoner table, top-tasks-by-cost table, and sponsor budget bar. |
+| Estimator + Pricing | Complete | `Estimator.from_dry_run(pipeline, queue, ...)` performs two-pass dry-run sampling for pre-run cost projection. `Estimator.from_history(client, ...)` projects from existing Board records. `runtime.with_pricing({...})` configures dollar attribution; pricing is mirrored to a `_pricing` Board key so SQLite-mode UI invocations can read it without a live runtime. `python -m quadro.estimate <board.db>` is the CLI surface for ad-hoc projections from persisted history. |
+| Examples layout | Complete | Examples are purpose-organized (`newsroom`, `ordering`, `ordering_minimal`, `token_budget`, `crm_sponsor`, `cooperation`, `minimal`, `anthropic_minimal`, `estimator`, `synthetic_data`, `workflow_stage_minimal`, `supervisor_stage_minimal`). Each example is self-contained and imports cleanly from one adapter at a time. |
+
+## Saga DSL
+
+The saga DSL rollout is structurally complete for the shipped scope.
+
+### Shipped Step Kinds
+
+- `deterministic`: pure Python work, sync or async.
+- `reason`: one LLM reasoning episode through a registered `Reasoner`.
+- `gate`: predicate-driven branch selection.
+- `guard`: precondition failure with `guard_failed:<step>`.
+- `expect`: postcondition failure with `expect_failed:<step>`.
+- `evidence`: best-effort audit capture.
+- `stamp`: ordered audit marker.
+- `parallel`: branch-local concurrent mini-sagas with `all`, `any`, and `n_of_m` joins.
+
+### Shipped Modifiers
+
+- `retry`: typed retry loop with fixed or exponential backoff.
+- `deadline`: per-attempt wall-clock timeout.
+- `idempotent`: saga-wide idempotency key declaration.
+
+### Shipped Runtime Semantics
+
+- Saga state persists under `_saga:<task_id>`.
+- Completed step outputs, evidence, stamps, compensations, reasoner IDs, and
+  parallel branch states round-trip through Board data.
+- The runtime resumes from persisted `pc` rather than restarting completed work.
+- Compensation rollback walks completed steps in reverse order and descends into
+  completed parallel branches.
+- Deterministic chief mode dispatches saga-only pipelines without an LLM-backed
+  chief runtime.
+- Runtime telemetry covers saga start/resume/complete, step start/end/failure,
+  guard/expect/deadline failures, retry attempts, parallel branch lifecycle, and
+  compensation/rollback events.
+- Reason-step token usage is captured through the `Reasoner` protocol's
+  `token_reporter` callback and persisted as a structured per-step record on
+  the Board.
+
+## Documentation
+
+Three guides cover the bulk of the developer-facing surface:
+
+- [`docs/guides/saga-authoring.md`](docs/guides/saga-authoring.md) — the
+  starting point for developers writing a new saga. Walks from blank file to
+  tested pipeline stage with one section per step kind, modifier, and the
+  compensation walkthrough. Includes the deep-agent custom reasoner pattern
+  and the project-wide token-usage-in-output convention.
+- [`docs/guides/adapters.md`](docs/guides/adapters.md) — the starting point
+  for developers writing a new adapter package. Documents the `Reasoner` and
+  `FrameworkRuntime` protocols, the sibling-package layout, and two recipes
+  (reasoner-only mirroring `quadro_anthropic`, and full-stack mirroring
+  `quadro_maf`).
+- [`docs/guides/sponsor-decision-matrix.md`](docs/guides/sponsor-decision-matrix.md)
+  — the lookup for choosing the right sponsor for a given lifetime
+  requirement. Pairs with `docs/guides/sponsor-authoring.md` for users
+  writing custom sponsors.
+
+The smallest executable reference is `examples/minimal/`; the compensation
+reference is `examples/ordering_minimal/`; the production-shaped LLM
+demonstration is `examples/newsroom/`. The cost-projection demonstrations
+live at `examples/estimator/` (minimal) and `examples/synthetic_data/`
+(production-shaped).
+
+## Deferred Work
+
+### Fork + Join
+
+Milestone F remains deferred. Fork/join is task-level concurrency, not another
+branch inside one saga. It likely touches parent/child task relationships,
+lifecycle phases for waiting parents, chief routing, persistence, and UI
+timeline presentation.
+
+It should not ship until a production-shaped use case constrains the design.
+Candidate inputs include multi-document review, batch processing, or
+hierarchical task decomposition. Until then, the shipped `parallel` step covers
+in-saga concurrency without changing TaskRecord or lifecycle semantics.
+
+### Additional Adapter Packages
+
+`quadro_anthropic` shipped as a first-party adapter (see Shipped Foundation
+above). Further adapters remain future work, dependent on a concrete user
+need justifying first-party maintenance. The substrate already supports
+user-authored adapters through the `Reasoner` and `FrameworkRuntime` seams.
+Candidates under active discussion are catalogued in
+[`docs/guides/adapters.md`](docs/guides/adapters.md#future-candidates) —
+LiteLLM (a single-client proxy over ~100 providers), native AWS Bedrock,
+native Google Vertex AI, and a community LlamaIndex adapter.
+
+### Board UI Saga Timelines
+
+The backend emits enough saga telemetry to build a timeline view, but the UI
+has not grown a dedicated saga visualization. That is a UI project, not a
+blocker for the DSL runtime.
+
+### Declarative Saga Files
+
+TOML/YAML saga authoring and validation remain future possibilities. The
+current Python builder is the supported authoring surface. (Lifecycle
+profiles already support TOML files via `quadro.load_lifecycle()`; the
+saga-DSL extension would be the analogous shape one level down.)
+
+### Distributed Execution
+
+The current reference implementation uses in-process A2A dispatch for examples
+and tests. Distributed worker nodes, remote transports, and production backend
+packages are contribution areas rather than saga rollout prerequisites.
+
+### Reporting Phase 3 — CLI report sub-command
+
+Folded into the Estimator milestone. `python -m quadro.estimate <board.db>`
+prints a token-and-dollar report from a board's persisted history and
+optionally projects forward to N tasks, which covers the original phase-3
+intent. A separate sub-command may still be added if a real consumer asks
+for a different shape.
+
+### Reporting Phase 4 — explicit non-goals
+
+Templating engines (Jinja2/Mako/etc.), separate metrics databases, scheduled
+report emails, webhooks-out reporting bridges, dedicated Prometheus exporters
+beyond the small `quadro_llm_tokens_total` counter Phase 2 added (use
+`quadro.integrations.otel` for richer needs), CSV export features, and
+pluggable reporting backends are explicit non-goals. Each thread pulls
+Quadro toward being-a-reporting-tool. The substrate stays focused on
+governed coordination; reporting backends are downstream of
+`BoardClient.token_records()` and the public `Estimator` API.
+
+## Invariants
+
+These properties should continue to hold:
+
+- The Board is the single source of truth.
+- Component boundaries use A2A request envelopes.
+- Lifecycle transitions emit exactly one immutable event.
+- Board data writes do not emit task lifecycle events.
+- The substrate has no LLM-framework imports.
+- `Reasoner` and `FrameworkRuntime` stay framework-neutral.
+- New adapters live outside `src/quadro/`.
+- Existing saga step kinds and modifiers are extended by telemetry and bug
+  fixes, not by hidden protocol changes.
+- Pricing is configured at the runtime level and mirrored to the Board so
+  SQLite-mode UI invocations resolve dollar amounts without a live runtime.
+
+## Release Health Checks
+
+These criteria reflect the properties that hold at every shipping release.
+They are written prospectively — a future maintainer checking the same boxes
+should still find the substrate in this shape.
+
+- All existing tests pass.
+- The substrate-purity import grep returns zero matches:
+
+  ```bash
+  grep -rE "^(import|from) (agent_framework|langchain|anthropic|openai)" src/quadro/
+  ```
+
+- `examples/minimal/` demonstrates a custom reasoner with no framework adapter.
+- `examples/newsroom/` runs through MAF adapter composition.
+- `examples/ordering_minimal/` demonstrates compensation rollback.
+- `examples/anthropic_minimal/` demonstrates the reasoner-only adapter shape
+  and the project-wide token-usage-in-output convention.
+- `examples/estimator/` produces a calibrated cost projection with a
+  bounded sample run cost.
+- The Costs tab renders dollar columns when pricing is configured on the
+  runtime, and gracefully hides them when it is not.
+- [`docs/guides/saga-authoring.md`](docs/guides/saga-authoring.md) is current
+  with the builder and runtime.
+- [`docs/guides/adapters.md`](docs/guides/adapters.md) matches the current
+  substrate model — `Reasoner` and `FrameworkRuntime` protocols, sibling
+  package layout, three reference implementations.
+- Fork/join remains explicitly deferred until a real use case appears.

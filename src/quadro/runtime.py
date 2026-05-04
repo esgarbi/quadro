@@ -9,6 +9,7 @@ from .a2a.dispatch import LocalA2ANetwork
 from .board.backends.base import BoardBackend
 from .board.board import QuadroBoard
 from .board.client import BoardClient
+from .estimator import ModelPricing, Pricing
 from .runner import RunLoop
 from .sponsor.meters import MeterBundle
 from .sponsor.types import Sponsor
@@ -45,6 +46,8 @@ class QuadroRuntime:
         self._drain_max_duration = timedelta(minutes=5)
         self._shutdown_hooks: list[Callable[[], None]] = []
         self._meters: MeterBundle | None = None
+        self._pricing: Pricing | None = None
+        self._pricing_written = False
 
     def _assert_not_started(self) -> None:
         if self._board is not None:
@@ -60,7 +63,12 @@ class QuadroRuntime:
                 custom_profiles=self._custom_profiles,
                 network=self._network,
             )
+            if self._pricing is not None:
+                setattr(self._board, "_pricing", self._pricing)
             self._client = self._board.client()
+            if self._pricing is not None and not self._pricing_written:
+                self._client.put_data("_pricing", self._pricing.to_dict())
+                self._pricing_written = True
         return self._board
 
     def with_profiles(
@@ -76,6 +84,31 @@ class QuadroRuntime:
     def with_network(self, network: Any) -> QuadroRuntime:
         self._assert_not_started()
         self._network = network
+        return self
+
+    def with_pricing(
+        self,
+        models: dict[str, dict[str, float]],
+        *,
+        source_label: str | None = None,
+        last_verified: str | None = None,
+        verify_url: str | None = None,
+    ) -> QuadroRuntime:
+        """Configure optional model pricing for dollar projection."""
+        self._assert_not_started()
+        self._pricing = Pricing(
+            models={
+                name: ModelPricing(
+                    input_per_mtok=value["input"],
+                    output_per_mtok=value["output"],
+                    io_ratio=value.get("io_ratio", 0.30),
+                )
+                for name, value in models.items()
+            },
+            source_label=source_label or "configured at runtime startup",
+            last_verified=last_verified,
+            verify_url=verify_url,
+        )
         return self
 
     def put_data(self, key: str, value: Any) -> QuadroRuntime:
@@ -96,6 +129,10 @@ class QuadroRuntime:
     @property
     def network(self) -> Any:
         return self._network
+
+    @property
+    def pricing(self) -> Pricing | None:
+        return self._pricing
 
     @property
     def meters(self) -> MeterBundle:
