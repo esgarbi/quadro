@@ -21,9 +21,25 @@ jobs:
           python-version: "3.11"
 
       - name: Install package and pip-audit
+        # Upgrade the build toolchain first. pip-audit scans every
+        # distribution in the active environment, including the toolchain
+        # itself. The hosted runner ships old versions of these:
+        #   - pip 26.0.1 trips CVE-2026-3219 (fixed in 26.1)
+        #   - setuptools 65.5.0 trips CVE-2024-6345, PYSEC-2022-43012,
+        #     PYSEC-2025-49 (fixed in 78.1.1+)
+        # Refreshing the toolchain closes those findings without us having
+        # to maintain a CVE ignore-list. Quadro itself has zero runtime deps
+        # (see ``dependencies = []`` in pyproject.toml), so once the
+        # toolchain is current there is nothing left in the environment for
+        # pip-audit to flag.
         run: |
+          python -m pip install --upgrade pip setuptools wheel
           pip install .
           pip install pip-audit
 
       - name: Run pip-audit
+        # ``--strict`` turns the "skipped because not on PyPI" line for the
+        # local quadro install into a hard failure, which would defeat the
+        # purpose of running the audit pre-publication. We accept the
+        # informational skip; it'll stop appearing once Quadro ships to PyPI.
         run: pip-audit

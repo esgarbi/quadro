@@ -25,6 +25,17 @@ dev = [
     # Used by the OTel integration test; keeps the core dep-free in production.
     "opentelemetry-api>=1.20",
     "opentelemetry-sdk>=1.20",
+    # Used directly by unit tests (estimator, saga reason/via selection,
+    # anthropic reasoner). Keeps the core substrate dep-free while letting the
+    # test suite express schemas the way real adapters do.
+    "pydantic>=2.0",
+    # The token-budget unit test imports examples/token_budget/main.py, which
+    # loads its config via python-dotenv and instantiates the LangChain
+    # adapter at import time. Pulled into dev so `pip install -e .[dev]`
+    # alone is enough to run the full pytest collection.
+    "python-dotenv>=1.0",
+    "langchain-core>=0.3,<0.4",
+    "langchain-openai>=0.3,<0.4",
 ]
 otel = [
     "opentelemetry-api>=1.20",

@@ -45,7 +45,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from agent_framework.openai import OpenAIChatClient                              # noqa: E402
 from quadro import LifecycleBuilder, Pipeline, QuadroRuntime                     # noqa: E402
 from quadro.board.backends import SqliteBoardBackend                             # noqa: E402
-from quadro.sponsor import AllOf, DeadlineSponsor, LlmTokenBudgetSponsor        # noqa: E402
+from quadro.sponsor import LlmTokenBudgetSponsor                                # noqa: E402
 from quadro_maf import MafChiefRuntime, MafReasoner                              # noqa: E402
 
 from data import INITIAL_WAREHOUSE, PRODUCT_CATALOG                              # noqa: E402

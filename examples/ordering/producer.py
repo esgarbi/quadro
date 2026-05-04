@@ -287,8 +287,7 @@ class OrderProducer:
                     time.monotonic() - self._choreo_step_started
                 )
                 wait = min(wait, max(1.0, remaining))
-            #time.sleep(wait)
-            
+            # time.sleep(wait)
             time.sleep(random.uniform(0.0, 5))
 
     def _generate_order(self) -> dict:

@@ -172,7 +172,6 @@ def main(
                 target_articles=target_articles, max_cycles=max_cycles
             )
         )
-     
         .on_cycle(
             make_cycle_logger(
                 logger,
@@ -180,7 +179,6 @@ def main(
                 producer=producer,
             )
         )
-        
         .poll_every(3.0)
         .ombudsman_every(30.0)
         .run(pipeline)

@@ -97,13 +97,22 @@ def test_four_saga_newsroom_publishes_article(tmp_path, monkeypatch) -> None:
         ResearchStrategy,
     )
     import sagas                                                             # noqa: E402
+    from sagas import research as sagas_research                             # noqa: E402
+    from sagas import review as sagas_review                                 # noqa: E402
 
     # Isolate the on-disk artefact directory to this test's tmp_path.
-    monkeypatch.setattr(sagas, "ARTICLES_DIR", tmp_path)
+    # Post sagas-package refactor, ``ARTICLES_DIR`` is bound into
+    # ``sagas.review`` at import time (``from ._common import
+    # ARTICLES_DIR``), so the consumer's binding is what actually drives
+    # disk writes. Patching the re-exported ``sagas.ARTICLES_DIR`` alone
+    # is a no-op for the runtime path.
+    monkeypatch.setattr(sagas_review, "ARTICLES_DIR", tmp_path)
 
     # Short-circuit the PubMed fetch so the test is offline and
     # deterministic. Returns the dict shape that the saga's dedupe step
-    # expects.
+    # expects. ``_pubmed_search`` lives in the ``sagas.research`` submodule
+    # after the package split — patching ``sagas._pubmed_search`` would
+    # raise ``AttributeError`` because the helper is not re-exported.
     canned = [
         {
             "pmid": "12345",
@@ -114,7 +123,9 @@ def test_four_saga_newsroom_publishes_article(tmp_path, monkeypatch) -> None:
             "abstract": "",
         }
     ]
-    monkeypatch.setattr(sagas, "_pubmed_search", lambda *a, **kw: list(canned))
+    monkeypatch.setattr(
+        sagas_research, "_pubmed_search", lambda *a, **kw: list(canned)
+    )
 
     # Real in-memory SQLite board with the article lifecycle registered.
     backend = SqliteBoardBackend()
